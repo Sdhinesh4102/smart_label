@@ -8,7 +8,9 @@ export const calculateCostsAndMargins = (config) => {
     sheetsCost,
     stickersPerSheet,
     coversCost,
-    inkCostPerSheet
+    inkCostPerSheet,
+    priceType1 = 1.0,
+    priceType2 = 2.0
   } = config;
 
   // 1. Materials Unit Costs
@@ -20,9 +22,6 @@ export const calculateCostsAndMargins = (config) => {
   const unitCost = stickerPaperCostUnit + inkCostUnit;
 
   // 2. Pricing and Margins
-  const priceType1 = 1.0; // Simple QR: 1 INR per sticker
-  const priceType2 = 2.0; // Advanced QR: 2 INR per sticker
-
   const profitType1 = priceType1 - unitCost;
   const profitType2 = priceType2 - unitCost;
 

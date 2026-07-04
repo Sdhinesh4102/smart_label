@@ -1589,3 +1589,116 @@ input:focus, select:focus {
   color: #1d1d1f;
 }
 
+/* ==========================================================================
+   INVOICE GENERATOR STYLES
+   ========================================================================== */
+
+.invoice-generator-wrapper input,
+.invoice-generator-wrapper textarea {
+  font-family: inherit;
+  width: 100%;
+}
+
+.invoice-input {
+  border: 1px solid transparent;
+  padding: 0.25rem;
+  border-radius: 4px;
+  background: transparent;
+  transition: all 0.2s;
+  color: inherit;
+}
+
+.invoice-input:hover,
+.invoice-input:focus {
+  border-color: #e5e7eb;
+  background: #f9fafb;
+  outline: none;
+}
+
+.invoice-textarea {
+  border: 1px solid transparent;
+  padding: 0.25rem;
+  border-radius: 4px;
+  background: transparent;
+  resize: vertical;
+  min-height: 40px;
+  transition: all 0.2s;
+  color: inherit;
+}
+
+.invoice-textarea:hover,
+.invoice-textarea:focus {
+  border-color: #e5e7eb;
+  background: #f9fafb;
+  outline: none;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.bold {
+  font-weight: bold;
+}
+
+.text-lg {
+  font-size: 1.125rem;
+}
+
+@media print {
+  .invoice-paper {
+    padding: 10mm 15mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    width: 210mm !important;
+    box-sizing: border-box !important;
+    margin: 0 auto !important;
+  }
+  
+  .invoice-generator-wrapper {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 210mm !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Make inputs look like static text in print */
+  .invoice-input, .invoice-textarea {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    resize: none !important;
+    overflow: hidden !important;
+  }
+  
+  /* Remove dropdown arrows from select inputs in print */
+  select.invoice-input {
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+  }
+  
+  .print-only {
+    display: inline-block !important;
+  }
+
+  .invoice-history-wrapper {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .print-no-appearance {
+    background-image: none !important;
+    padding-right: 0.75rem !important; /* Reset padding since arrow is gone */
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+  }
+}

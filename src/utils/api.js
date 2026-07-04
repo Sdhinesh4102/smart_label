@@ -206,3 +206,68 @@ export const claimQRCodeAsync = async (qrId, claimerName, claimerPhone) => {
   }
   return true;
 };
+
+// --- Invoices API ---
+export const getInvoicesAsync = async () => {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('*')
+    .order('created_at', { ascending: false });
+    
+  if (error) {
+    console.error('Error fetching invoices:', error);
+    return [];
+  }
+  return data;
+};
+
+export const saveInvoiceAsync = async (invoiceData) => {
+  const payload = {
+    invoice_number: invoiceData.invoice_number,
+    client_id: invoiceData.client_id || null,
+    client_name: invoiceData.client_name,
+    date: invoiceData.date,
+    due_date: invoiceData.due_date,
+    total_amount: invoiceData.total_amount,
+    status: invoiceData.status || 'Unpaid',
+    items: invoiceData.items || []
+  };
+
+  const { data, error } = await supabase
+    .from('invoices')
+    .insert([payload])
+    .select();
+    
+  if (error) {
+    console.error('Error saving invoice:', error);
+    alert(`Failed to save invoice to database: ${error.message}`);
+    return null;
+  }
+  return data[0];
+};
+
+export const updateInvoiceStatusAsync = async (id, status) => {
+  const { error } = await supabase
+    .from('invoices')
+    .update({ status })
+    .eq('id', id);
+    
+  if (error) {
+    console.error('Error updating invoice status:', error);
+    return false;
+  }
+  return true;
+};
+
+export const deleteInvoiceAsync = async (id) => {
+  const { error } = await supabase
+    .from('invoices')
+    .delete()
+    .eq('id', id);
+    
+  if (error) {
+    console.error('Error deleting invoice:', error);
+    return false;
+  }
+  return true;
+};

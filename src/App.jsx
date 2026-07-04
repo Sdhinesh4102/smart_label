@@ -8,6 +8,8 @@ import BusinessCalculator from './components/BusinessCalculator';
 import ClientManager from './components/ClientManager';
 import QRStickerGenerator from './components/QRStickerGenerator';
 import CustomerStoreView from './components/CustomerStoreView';
+import InvoiceGenerator from './components/InvoiceGenerator';
+import InvoiceHistory from './components/InvoiceHistory';
 import { 
   QrCode, 
   Calculator, 
@@ -15,8 +17,13 @@ import {
   Eye, 
   Layers, 
   HelpCircle,
-  ExternalLink
+  ExternalLink,
+  FileText,
+  LogOut,
+  History
 } from 'lucide-react';
+import { useAuth } from './context/AuthContext';
+import AuthScreen from './components/AuthScreen';
 
 // Helper to parse routes from URL hash
 const parseHashRoute = () => {
@@ -45,6 +52,7 @@ const parseHashRoute = () => {
 };
 
 export default function App() {
+  const { user, signOut } = useAuth();
   const [clients, setClients] = useState([]);
   const [config, setConfig] = useState(null);
   const [activeTab, setActiveTab] = useState('calculator');
@@ -115,14 +123,19 @@ export default function App() {
     );
   }
 
-  // --- 2. RENDER BUSINESS ADMINISTRATION PANEL ---
+  // --- 2. AUTHENTICATION GUARD ---
+  if (!user) {
+    return <AuthScreen />;
+  }
+
+  // --- 3. RENDER BUSINESS ADMINISTRATION PANEL ---
   return (
     <div className="app-container">
       {/* Navigation Shell */}
       <header className="app-navbar hide-on-print">
         <div className="nav-brand">
           <QrCode size={24} className="icon-purple" />
-          <span>Antigravity QR Promo Suite</span>
+          <span>Smart QR Promo Suite</span>
         </div>
         <nav className="nav-links">
           <button 
@@ -137,6 +150,20 @@ export default function App() {
             onClick={() => setActiveTab('clients')}
           >
             <ShoppingBag size={16} /> Store Client Manager
+          </button>
+
+          <button 
+            className={`nav-btn ${activeTab === 'invoice' ? 'active' : ''}`}
+            onClick={() => setActiveTab('invoice')}
+          >
+            <FileText size={16} /> Invoice Generator
+          </button>
+
+          <button 
+            className={`nav-btn ${activeTab === 'invoice_history' ? 'active' : ''}`}
+            onClick={() => setActiveTab('invoice_history')}
+          >
+            <History size={16} /> Invoice History
           </button>
 
           <button 
@@ -155,6 +182,14 @@ export default function App() {
             disabled={!selectedClient}
           >
             <Eye size={16} /> Scan View Simulator
+          </button>
+          
+          <button 
+            className="nav-btn"
+            style={{ marginLeft: 'auto', color: '#ef4444' }}
+            onClick={signOut}
+          >
+            <LogOut size={16} /> Logout
           </button>
         </nav>
       </header>
@@ -176,6 +211,14 @@ export default function App() {
             onSelectClient={handleSelectClientForPrint}
             onViewSimulator={handleSelectClientForSimulate}
           />
+        )}
+
+        {activeTab === 'invoice' && (
+          <InvoiceGenerator selectedClient={selectedClient} />
+        )}
+
+        {activeTab === 'invoice_history' && (
+          <InvoiceHistory />
         )}
 
         {activeTab === 'generator' && selectedClient && (

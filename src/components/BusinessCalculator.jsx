@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { calculateCostsAndMargins } from '../utils/financialMath';
 import { TrendingUp, Calculator, Users, Printer, DollarSign, Activity } from 'lucide-react';
 
-export default function BusinessCalculator({ config, clients = [] }) {
+export default function BusinessCalculator({ config, onConfigChange, clients = [] }) {
   const [projectionVolume, setProjectionVolume] = useState(5000);
+  const [projectionMix, setProjectionMix] = useState('50/50'); // '50/50', 'simple', 'advanced'
 
   // Recalculate metrics based on config (inputs removed, using saved settings)
   const currentConfig = {
@@ -11,7 +12,18 @@ export default function BusinessCalculator({ config, clients = [] }) {
     sheetsCost: Number(config.sheetsCost || 320),
     stickersPerSheet: config.stickersPerSheet || 18,
     coversCost: Number(config.coversCost || 150),
-    inkCostPerSheet: Number(config.inkCostPerSheet || 1.5)
+    inkCostPerSheet: Number(config.inkCostPerSheet || 1.5),
+    priceType1: Number(config.priceType1 || 1.0),
+    priceType2: Number(config.priceType2 || 2.0)
+  };
+
+  const handlePriceChange = (field, value) => {
+    if (onConfigChange) {
+      onConfigChange({
+        ...config,
+        [field]: Number(value)
+      });
+    }
   };
 
   const metrics = calculateCostsAndMargins(currentConfig);
@@ -32,12 +44,34 @@ export default function BusinessCalculator({ config, clients = [] }) {
   });
 
   // Calculation for projection sliders (assuming an average of 500 stickers per shop)
-  const projShopsPerType = Math.ceil((projectionVolume / 2) / 500);
-  const simpleProj = metrics.getPackageMetrics(projectionVolume / 2, 'simple', projShopsPerType);
-  const advancedProj = metrics.getPackageMetrics(projectionVolume / 2, 'advanced', projShopsPerType);
-  const blendedRevenue = simpleProj.revenue + advancedProj.revenue;
-  const blendedCost = simpleProj.materialCost + advancedProj.materialCost;
-  const blendedProfit = blendedRevenue - blendedCost;
+  let blendedRevenue = 0;
+  let blendedCost = 0;
+  let blendedProfit = 0;
+  let mixDesc = '';
+
+  if (projectionMix === '50/50') {
+    const projShopsPerType = Math.ceil((projectionVolume / 2) / 500);
+    const simpleProj = metrics.getPackageMetrics(projectionVolume / 2, 'simple', projShopsPerType);
+    const advancedProj = metrics.getPackageMetrics(projectionVolume / 2, 'advanced', projShopsPerType);
+    blendedRevenue = simpleProj.revenue + advancedProj.revenue;
+    blendedCost = simpleProj.materialCost + advancedProj.materialCost;
+    blendedProfit = blendedRevenue - blendedCost;
+    mixDesc = '50/50 mix of Type-1 & Type-2';
+  } else if (projectionMix === 'simple') {
+    const projShops = Math.ceil(projectionVolume / 500);
+    const proj = metrics.getPackageMetrics(projectionVolume, 'simple', projShops);
+    blendedRevenue = proj.revenue;
+    blendedCost = proj.materialCost;
+    blendedProfit = proj.profit;
+    mixDesc = '100% Type-1 (Simple QR)';
+  } else if (projectionMix === 'advanced') {
+    const projShops = Math.ceil(projectionVolume / 500);
+    const proj = metrics.getPackageMetrics(projectionVolume, 'advanced', projShops);
+    blendedRevenue = proj.revenue;
+    blendedCost = proj.materialCost;
+    blendedProfit = proj.profit;
+    mixDesc = '100% Type-2 (Advanced QR)';
+  }
 
   return (
     <div className="calculator-container" style={{ padding: '1rem 0' }}>
@@ -105,6 +139,32 @@ export default function BusinessCalculator({ config, clients = [] }) {
           <p style={{ color: 'var(--text-secondary)' }}>Project your monthly revenue by adjusting your expected print volume.</p>
         </div>
         
+        {/* Pricing Config inline */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '2.5rem', background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <label style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>Type-1 Price (₹):</label>
+            <input 
+              type="number" 
+              value={currentConfig.priceType1} 
+              onChange={(e) => handlePriceChange('priceType1', e.target.value)}
+              style={{ width: '80px', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'white', color: '#1e293b', textAlign: 'center', fontWeight: 'bold' }}
+              step="0.5"
+              min="0.5"
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <label style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>Type-2 Price (₹):</label>
+            <input 
+              type="number" 
+              value={currentConfig.priceType2} 
+              onChange={(e) => handlePriceChange('priceType2', e.target.value)}
+              style={{ width: '80px', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'white', color: '#1e293b', textAlign: 'center', fontWeight: 'bold' }}
+              step="0.5"
+              min="0.5"
+            />
+          </div>
+        </div>
+        
         <div className="premium-slider-container">
           <input 
             type="range" 
@@ -116,6 +176,22 @@ export default function BusinessCalculator({ config, clients = [] }) {
             onChange={(e) => setProjectionVolume(Number(e.target.value))}
           />
           <div className="volume-display-premium">{projectionVolume.toLocaleString()} stickers / month</div>
+          
+          {/* Projection Mix Selection */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+              <input type="radio" name="mix" value="simple" checked={projectionMix === 'simple'} onChange={(e) => setProjectionMix(e.target.value)} />
+              100% Type-1
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+              <input type="radio" name="mix" value="50/50" checked={projectionMix === '50/50'} onChange={(e) => setProjectionMix(e.target.value)} />
+              50/50 Mix
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+              <input type="radio" name="mix" value="advanced" checked={projectionMix === 'advanced'} onChange={(e) => setProjectionMix(e.target.value)} />
+              100% Type-2
+            </label>
+          </div>
         </div>
 
         <div className="premium-proj-grid">
@@ -127,7 +203,7 @@ export default function BusinessCalculator({ config, clients = [] }) {
           <div className="premium-proj-col">
             <span className="premium-proj-title">Projected Revenue</span>
             <span className="premium-proj-val">₹{blendedRevenue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-            <span className="premium-proj-desc">50/50 mix of Type-1 & Type-2</span>
+            <span className="premium-proj-desc">{mixDesc}</span>
           </div>
           <div className="premium-proj-col">
             <span className="premium-proj-title">Material & Shipping</span>
