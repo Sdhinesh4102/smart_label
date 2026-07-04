@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import QRCodeStyling from 'qr-code-styling';
 import { QrCode, Printer, Sliders, RefreshCw, Download, Layers } from 'lucide-react';
-import { savePrintRunAsync } from '../utils/api';
+import { savePrintRunAsync, logPrintRunAsync } from '../utils/api';
 
 export default function QRStickerGenerator({ client, config, onConfigChange }) {
   const [targetBaseUrl, setTargetBaseUrl] = useState(
@@ -106,6 +106,19 @@ export default function QRStickerGenerator({ client, config, onConfigChange }) {
       try {
         let qrDataUrl = '';
         if (qrDesign !== 'standard') {
+            const designConfigs = {
+              rounded: { dots: 'rounded', corners: 'extra-rounded', cornersDot: 'dot' },
+              dots: { dots: 'dots', corners: 'dot', cornersDot: 'dot' },
+              classy: { dots: 'classy', corners: 'extra-rounded', cornersDot: 'dot' },
+              soft_square: { dots: 'square', corners: 'extra-rounded', cornersDot: 'dot' },
+              classy_rounded: { dots: 'classy-rounded', corners: 'extra-rounded', cornersDot: 'dot' },
+              bold_dots: { dots: 'dots', corners: 'square', cornersDot: 'square' },
+              fluid: { dots: 'rounded', corners: 'extra-rounded', cornersDot: 'dot' },
+              professional: { dots: 'square', corners: 'square', cornersDot: 'square' },
+              bubbles: { dots: 'dots', corners: 'dot', cornersDot: 'dot' }
+            };
+            const selectedDesign = designConfigs[qrDesign] || designConfigs.classy;
+
             const qrStyling = new QRCodeStyling({
               width: 200,
               height: 200,
@@ -113,13 +126,13 @@ export default function QRStickerGenerator({ client, config, onConfigChange }) {
               margin: 1,
               dotsOptions: {
                 color: "#1e1b4b",
-                type: qrDesign === 'dots' ? 'dots' : qrDesign === 'rounded' ? 'rounded' : 'classy'
+                type: selectedDesign.dots
               },
               cornersSquareOptions: {
-                type: qrDesign === 'dots' ? 'dot' : qrDesign === 'rounded' ? 'extra-rounded' : 'extra-rounded'
+                type: selectedDesign.corners
               },
               cornersDotOptions: {
-                type: qrDesign === 'dots' ? 'dot' : 'dot'
+                type: selectedDesign.cornersDot
               }
             });
             const blob = await qrStyling.getRawData("png");
@@ -154,9 +167,14 @@ export default function QRStickerGenerator({ client, config, onConfigChange }) {
     }
 
     setQrCodes(codes);
+    
+    // Save to DB immediately so user can test scanning from screen before printing
+    const actualWinners = codes.filter(c => c.isWinner).length;
+    await savePrintRunAsync(client.id, codes.length, actualWinners, codes);
+    setHasSavedRun(true);
+
     setIsGenerating(false);
     isGeneratingRef.current = false;
-    setHasSavedRun(false); // New batch needs to be saved on print
   };
 
 
@@ -171,12 +189,9 @@ export default function QRStickerGenerator({ client, config, onConfigChange }) {
   }
 
   const handlePrint = async () => {
-    if (!hasSavedRun && qrCodes.length > 0) {
-      setIsSaving(true);
-      const actualWinners = qrCodes.filter(c => c.isWinner).length;
-      await savePrintRunAsync(client.id, qrCodes.length, actualWinners, qrCodes);
-      setHasSavedRun(true);
-      setIsSaving(false);
+    // Only log analytics when they actually print
+    if (qrCodes.length > 0) {
+      await logPrintRunAsync(client.id, qrCodes.length);
     }
     window.print();
   };
@@ -411,6 +426,12 @@ export default function QRStickerGenerator({ client, config, onConfigChange }) {
               <option value="rounded">Rounded Corners</option>
               <option value="dots">Modern Dots</option>
               <option value="classy">Classy Style</option>
+              <option value="soft_square">Soft Square</option>
+              <option value="classy_rounded">Classy Rounded</option>
+              <option value="bold_dots">Bold Dots</option>
+              <option value="fluid">Fluid Smooth</option>
+              <option value="professional">Strict Professional</option>
+              <option value="bubbles">Playful Bubbles</option>
             </select>
           </div>
         </div>

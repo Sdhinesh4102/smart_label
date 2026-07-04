@@ -20,6 +20,7 @@ export const getClientsAsync = async () => {
     instagram: client.instagram,
     whatsapp: client.whatsapp,
     facebook: client.facebook,
+    website: client.website,
     packageSize: client.package_size,
     stickersPrinted: client.stickers_printed,
     qrType: client.qr_type,
@@ -38,6 +39,7 @@ export const saveClientAsync = async (client) => {
     instagram: client.instagram,
     whatsapp: client.whatsapp,
     facebook: client.facebook,
+    website: client.website,
     package_size: client.packageSize,
     stickers_printed: client.stickersPrinted,
     qr_type: client.qrType,
@@ -76,6 +78,7 @@ export const saveClientAsync = async (client) => {
     instagram: saved.instagram,
     whatsapp: saved.whatsapp,
     facebook: saved.facebook,
+    website: saved.website,
     packageSize: saved.package_size,
     stickersPrinted: saved.stickers_printed,
     qrType: saved.qr_type,
@@ -141,23 +144,23 @@ export const savePrintRunAsync = async (clientId, quantity, winnersCount, qrCode
       console.error('Error saving QR codes:', qrError);
     }
   }
-  // 4. Update the total stickers printed count for the client
-  if (runId) {
-    const { data: clientData } = await supabase
-      .from('store_clients')
-      .select('stickers_printed')
-      .eq('id', clientId)
-      .single();
-      
-    if (clientData) {
-      await supabase
-        .from('store_clients')
-        .update({ stickers_printed: (clientData.stickers_printed || 0) + quantity })
-        .eq('id', clientId);
-    }
-  }
   
   return runId;
+};
+
+export const logPrintRunAsync = async (clientId, quantity) => {
+  const { data: clientData } = await supabase
+    .from('store_clients')
+    .select('stickers_printed')
+    .eq('id', clientId)
+    .single();
+    
+  if (clientData) {
+    await supabase
+      .from('store_clients')
+      .update({ stickers_printed: (clientData.stickers_printed || 0) + quantity })
+      .eq('id', clientId);
+  }
 };
 
 // Customer Scan API

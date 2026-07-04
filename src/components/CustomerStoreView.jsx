@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { MapPin, Instagram, MessageSquare, Facebook, Gift, Sparkles, RefreshCw, User, Phone, CheckCircle } from 'lucide-react';
+import { MapPin, Instagram, MessageSquare, Facebook, Gift, Sparkles, RefreshCw, User, Phone, CheckCircle, Globe } from 'lucide-react';
 import { getQRCodeDetailsAsync, claimQRCodeAsync } from '../utils/api';
 
 export default function CustomerStoreView({ client, simulatedCouponCode = '', simulatedWin = true, isMock = false }) {
@@ -242,19 +242,22 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
   const waUrl = client.whatsapp ? `https://wa.me/${client.whatsapp}?text=${encodedMsg}` : null;
   const igUrl = client.instagram ? `https://instagram.com/${client.instagram}` : null;
   const fbUrl = client.facebook ? `https://facebook.com/${client.facebook}` : null;
+  const webUrl = client.website ? client.website : null;
 
   return (
     <div className={`customer-store-view ${isMock ? 'in-simulator' : 'standalone-page'}`}>
       <div className="phone-wrapper">
         <div className={`phone-screen ${(!scratched || isWinner) ? 'theme-light' : 'theme-dark'}`}>
-          {/* Phone Status Bar */}
-          <div className="phone-status-bar">
-            <span>9:41</span>
-            <div className="status-icons">
-              <span>📶</span>
-              <span>🔋</span>
+          {/* Phone Status Bar - ONLY show in mock mode */}
+          {isMock && (
+            <div className="phone-status-bar">
+              <span>9:41</span>
+              <div className="status-icons">
+                <span>📶</span>
+                <span>🔋</span>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="phone-content scrollable">
             {/* Header / Store Info */}
@@ -274,6 +277,11 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
 
             {/* Quick Links Menu */}
             <div className="links-menu">
+              {webUrl && (
+                <a href={webUrl} target="_blank" rel="noopener noreferrer" className="link-button website-btn">
+                  <Globe size={18} /><span>Store Website</span>
+                </a>
+              )}
               {client.locationUrl && (
                 <a href={client.locationUrl} target="_blank" rel="noopener noreferrer" className="link-button maps-btn">
                   <MapPin size={18} /><span>Navigate to Store Location</span>
@@ -405,11 +413,6 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
                         </>
                       )}
 
-                      {isMock && (
-                        <button className="btn-reset-scratch" onClick={handleResetScratch}>
-                          <RefreshCw size={12} /> Test Scratch Card Again
-                        </button>
-                      )}
                     </div>
                   )}
                 </div>
@@ -417,8 +420,8 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
             </div>
 
             {/* Sticky footer */}
-            <div className="store-footer-signature">
-              <span>Powered by QR promo sticker</span>
+            <div className="footer-branding">
+              <span>Powered by Synkraze.</span>
             </div>
           </div>
         </div>

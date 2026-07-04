@@ -12,6 +12,7 @@ export default function ClientManager({ clients, onSaveClients, onSelectClient, 
   const [instagram, setInstagram] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [facebook, setFacebook] = useState('');
+  const [website, setWebsite] = useState('');
   const [qrType, setQrType] = useState('simple');
   const [packageSize, setPackageSize] = useState(500);
   const [stickersPrinted, setStickersPrinted] = useState(0);
@@ -27,6 +28,7 @@ export default function ClientManager({ clients, onSaveClients, onSelectClient, 
     setInstagram('');
     setWhatsapp('');
     setFacebook('');
+    setWebsite('');
     setQrType('simple');
     setPackageSize(500);
     setStickersPrinted(0);
@@ -49,6 +51,7 @@ export default function ClientManager({ clients, onSaveClients, onSelectClient, 
       instagram: instagram.trim(),
       whatsapp: whatsapp.trim(),
       facebook: facebook.trim(),
+      website: website.trim(),
       qrType,
       rewardCode: qrType === 'advanced' ? rewardCode.trim().toUpperCase() : '',
       rewardCount: qrType === 'advanced' ? Number(rewardCount) : 0,
@@ -84,6 +87,7 @@ export default function ClientManager({ clients, onSaveClients, onSelectClient, 
     setInstagram(client.instagram || '');
     setWhatsapp(client.whatsapp || '');
     setFacebook(client.facebook || '');
+    setWebsite(client.website || '');
     setQrType(client.qrType);
     setPackageSize(client.packageSize);
     setStickersPrinted(client.stickersPrinted || 0);
@@ -237,6 +241,18 @@ export default function ClientManager({ clients, onSaveClients, onSelectClient, 
                     value={facebook} 
                     onChange={(e) => setFacebook(e.target.value)} 
                     placeholder="e.g. juicydropscafe" 
+                  />
+                </div>
+              </div>
+
+              <div className="form-col">
+                <div className="input-group">
+                  <label>Store Website URL</label>
+                  <input 
+                    type="url" 
+                    value={website} 
+                    onChange={(e) => setWebsite(e.target.value)} 
+                    placeholder="e.g. https://www.juicydrops.com" 
                   />
                 </div>
               </div>
