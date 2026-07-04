@@ -1,0 +1,298 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  getPrinterConfig, 
+  savePrinterConfig 
+} from './utils/localStorage';
+import { getClientsAsync } from './utils/api';
+import BusinessCalculator from './components/BusinessCalculator';
+import ClientManager from './components/ClientManager';
+import QRStickerGenerator from './components/QRStickerGenerator';
+import CustomerStoreView from './components/CustomerStoreView';
+import { 
+  QrCode, 
+  Calculator, 
+  ShoppingBag, 
+  Eye, 
+  Layers, 
+  HelpCircle,
+  ExternalLink
+} from 'lucide-react';
+
+// Helper to parse routes from URL hash
+const parseHashRoute = () => {
+  const hash = window.location.hash;
+  if (hash.startsWith('#/store/')) {
+    // Format: #/store/client-id?coupon=XYZ
+    const cleanHash = hash.replace('#/store/', '');
+    const parts = cleanHash.split('?');
+    const clientId = parts[0];
+    let coupon = '';
+    
+    if (parts[1]) {
+      const searchParams = new URLSearchParams(parts[1]);
+      coupon = searchParams.get('coupon') || '';
+    }
+    
+    return {
+      type: 'store',
+      clientId,
+      coupon
+    };
+  }
+  return {
+    type: 'dashboard'
+  };
+};
+
+export default function App() {
+  const [clients, setClients] = useState([]);
+  const [config, setConfig] = useState(null);
+  const [activeTab, setActiveTab] = useState('calculator');
+  const [selectedClient, setSelectedClient] = useState(null);
+  
+  // Routing State
+  const [route, setRoute] = useState({ type: 'dashboard' });
+  const [simulatedWin, setSimulatedWin] = useState(true);
+
+  // Load initial data
+  useEffect(() => {
+    const loadData = async () => {
+      const loadedClients = await getClientsAsync();
+      setClients(loadedClients);
+      const loadedConfig = getPrinterConfig();
+      setConfig(loadedConfig);
+    };
+    
+    loadData();
+
+    // Initial route check
+    setRoute(parseHashRoute());
+
+    // Listen to hash changes (for client-side routing)
+    const handleHashChange = () => {
+      setRoute(parseHashRoute());
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // Update client list state (API save handled by ClientManager)
+  const handleSaveClients = (newClients) => {
+    setClients(newClients);
+  };
+
+  // Update configuration
+  const handleSaveConfig = (newConfig) => {
+    setConfig(newConfig);
+    savePrinterConfig(newConfig);
+  };
+
+  // Route specifically to print screen
+  const handleSelectClientForPrint = (client) => {
+    setSelectedClient(client);
+    setActiveTab('generator');
+  };
+
+  // Route specifically to simulator screen
+  const handleSelectClientForSimulate = (client) => {
+    setSelectedClient(client);
+    setActiveTab('simulator');
+  };
+
+  if (!config) {
+    return <div className="app-loading">Loading configuration data...</div>;
+  }
+
+  // --- 1. RENDER STANDALONE CUSTOMER SCAN PAGE ---
+  if (route.type === 'store') {
+    const client = clients.find(c => c.id === route.clientId);
+    return (
+      <CustomerStoreView 
+        client={client} 
+        simulatedCouponCode={route.coupon} 
+        isMock={false} 
+      />
+    );
+  }
+
+  // --- 2. RENDER BUSINESS ADMINISTRATION PANEL ---
+  return (
+    <div className="app-container">
+      {/* Navigation Shell */}
+      <header className="app-navbar hide-on-print">
+        <div className="nav-brand">
+          <QrCode size={24} className="icon-purple" />
+          <span>Antigravity QR Promo Suite</span>
+        </div>
+        <nav className="nav-links">
+          <button 
+            className={`nav-btn ${activeTab === 'calculator' ? 'active' : ''}`}
+            onClick={() => setActiveTab('calculator')}
+          >
+            <Calculator size={16} /> Dashboard & Projections
+          </button>
+          
+          <button 
+            className={`nav-btn ${activeTab === 'clients' ? 'active' : ''}`}
+            onClick={() => setActiveTab('clients')}
+          >
+            <ShoppingBag size={16} /> Store Client Manager
+          </button>
+
+          <button 
+            className={`nav-btn ${activeTab === 'generator' ? 'active' : ''} ${!selectedClient ? 'disabled-tab' : ''}`}
+            onClick={() => selectedClient && setActiveTab('generator')}
+            title={!selectedClient ? 'Select a store in the Client Manager first' : ''}
+            disabled={!selectedClient}
+          >
+            <Layers size={16} /> Sheet Printer Layout
+          </button>
+
+          <button 
+            className={`nav-btn ${activeTab === 'simulator' ? 'active' : ''} ${!selectedClient ? 'disabled-tab' : ''}`}
+            onClick={() => selectedClient && setActiveTab('simulator')}
+            title={!selectedClient ? 'Select a store in the Client Manager first' : ''}
+            disabled={!selectedClient}
+          >
+            <Eye size={16} /> Scan View Simulator
+          </button>
+        </nav>
+      </header>
+
+      {/* Main Panel Content */}
+      <main className="app-content">
+        {activeTab === 'calculator' && (
+          <BusinessCalculator 
+            config={config} 
+            onConfigChange={handleSaveConfig} 
+            clients={clients} 
+          />
+        )}
+
+        {activeTab === 'clients' && (
+          <ClientManager 
+            clients={clients} 
+            onSaveClients={handleSaveClients} 
+            onSelectClient={handleSelectClientForPrint}
+            onViewSimulator={handleSelectClientForSimulate}
+          />
+        )}
+
+        {activeTab === 'generator' && selectedClient && (
+          <QRStickerGenerator 
+            client={selectedClient} 
+            config={config} 
+            onConfigChange={handleSaveConfig} 
+          />
+        )}
+
+        {activeTab === 'simulator' && selectedClient && (
+          <div className="simulator-view-container">
+            <div className="section-header hide-on-print">
+              <h2><Eye className="icon-purple" /> Consumer Experience Simulator</h2>
+              <p>Preview what customers see when scanning stickers printed for <strong>{selectedClient.name}</strong>.</p>
+            </div>
+            
+            <div className="simulator-flex-layout">
+              {/* Simulator Settings (Left side) */}
+              <div className="card glass-card simulator-controls-side hide-on-print">
+                <h3>Simulator Controls</h3>
+                
+                <div className="sim-details-item">
+                  <span>Store Name:</span>
+                  <strong>{selectedClient.name}</strong>
+                </div>
+
+                <div className="sim-details-item">
+                  <span>Service Type:</span>
+                  <span className={`badge ${selectedClient.qrType === 'simple' ? 'badge-blue' : 'badge-purple'}`}>
+                    {selectedClient.qrType === 'simple' ? 'Type 1: Simple QR' : 'Type 2: Advanced QR'}
+                  </span>
+                </div>
+
+                {selectedClient.qrType === 'advanced' && (
+                  <div className="input-group" style={{ marginTop: '1rem' }}>
+                    <label>Simulated Scanner Result:</label>
+                    <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                        <input 
+                          type="radio" 
+                          name="simWin" 
+                          checked={simulatedWin === true} 
+                          onChange={() => setSimulatedWin(true)} 
+                        />
+                        Winner (Reward: {selectedClient.rewardCode})
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                        <input 
+                          type="radio" 
+                          name="simWin" 
+                          checked={simulatedWin === false} 
+                          onChange={() => setSimulatedWin(false)} 
+                        />
+                        Loser (Try Again)
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* Removed obsolete standalone simulator links */}
+              </div>
+
+              {/* The Mobile mock frame (Right side) */}
+              <div className="simulator-phone-preview">
+                <CustomerStoreView 
+                  client={selectedClient} 
+                  simulatedCouponCode={selectedClient.rewardCode || 'BOGOJUICE'} 
+                  simulatedWin={selectedClient.qrType === 'simple' ? true : simulatedWin}
+                  isMock={true} 
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Styled styles injection for custom configurations */}
+      <style>{`
+        .disabled-tab {
+          opacity: 0.4;
+          cursor: not-allowed !important;
+        }
+        .simulator-flex-layout {
+          display: grid;
+          grid-template-columns: 1.2fr 1fr;
+          gap: 1.5rem;
+        }
+        .sim-details-item {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.9rem;
+          margin-bottom: 0.75rem;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid var(--border-color);
+        }
+        .sim-live-link-box {
+          margin-top: 1.5rem;
+          padding-top: 1.25rem;
+          border-top: 1px solid var(--border-color);
+          font-size: 0.8rem;
+          color: var(--text-secondary);
+        }
+        .app-loading {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          font-size: 1.2rem;
+          color: var(--text-secondary);
+        }
+        @media (max-width: 900px) {
+          .simulator-flex-layout {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
