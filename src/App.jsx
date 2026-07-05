@@ -48,8 +48,16 @@ const parseHashRoute = () => {
       coupon
     };
   }
+  const cleanHash = hash.replace('#', '');
+  const validTabs = ['calculator', 'clients', 'invoice', 'invoice_history', 'generator', 'simulator'];
+  
+  if (validTabs.includes(cleanHash)) {
+    return { type: 'dashboard', tab: cleanHash };
+  }
+
   return {
-    type: 'dashboard'
+    type: 'dashboard',
+    tab: 'calculator'
   };
 };
 
@@ -57,11 +65,15 @@ export default function App() {
   const { user, signOut } = useAuth();
   const [clients, setClients] = useState([]);
   const [config, setConfig] = useState(null);
-  const [activeTab, setActiveTab] = useState('calculator');
   const [selectedClient, setSelectedClient] = useState(null);
   
   // Routing State
-  const [route, setRoute] = useState({ type: 'dashboard' });
+  const [route, setRoute] = useState({ type: 'dashboard', tab: 'calculator' });
+  const activeTab = route.type === 'dashboard' ? route.tab : 'calculator';
+  
+  const setActiveTab = (tab) => {
+    window.location.hash = tab;
+  };
   const [simulatedWin, setSimulatedWin] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
