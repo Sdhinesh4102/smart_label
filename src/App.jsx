@@ -20,7 +20,9 @@ import {
   ExternalLink,
   FileText,
   LogOut,
-  History
+  History,
+  Menu,
+  X
 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import AuthScreen from './components/AuthScreen';
@@ -61,6 +63,7 @@ export default function App() {
   // Routing State
   const [route, setRoute] = useState({ type: 'dashboard' });
   const [simulatedWin, setSimulatedWin] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -133,42 +136,52 @@ export default function App() {
     <div className="app-container">
       {/* Navigation Shell */}
       <header className="app-navbar hide-on-print">
-        <div className="nav-brand">
-          <QrCode size={24} className="icon-purple" />
-          <span>Smart QR Promo Suite</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button 
+            className="mobile-menu-btn hide-on-print" 
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+          
+          <div className="nav-brand">
+            <QrCode size={24} className="icon-purple" />
+            <span>Smart QR Promo Suite</span>
+          </div>
         </div>
-        <nav className="nav-links">
+
+        <nav className={`nav-links ${isMenuOpen ? 'open' : ''}`}>
           <button 
             className={`nav-btn ${activeTab === 'calculator' ? 'active' : ''}`}
-            onClick={() => setActiveTab('calculator')}
+            onClick={() => { setActiveTab('calculator'); setIsMenuOpen(false); }}
           >
             <Calculator size={16} /> Dashboard & Projections
           </button>
           
           <button 
             className={`nav-btn ${activeTab === 'clients' ? 'active' : ''}`}
-            onClick={() => setActiveTab('clients')}
+            onClick={() => { setActiveTab('clients'); setIsMenuOpen(false); }}
           >
             <ShoppingBag size={16} /> Store Client Manager
           </button>
 
           <button 
             className={`nav-btn ${activeTab === 'invoice' ? 'active' : ''}`}
-            onClick={() => setActiveTab('invoice')}
+            onClick={() => { setActiveTab('invoice'); setIsMenuOpen(false); }}
           >
             <FileText size={16} /> Invoice Generator
           </button>
 
           <button 
             className={`nav-btn ${activeTab === 'invoice_history' ? 'active' : ''}`}
-            onClick={() => setActiveTab('invoice_history')}
+            onClick={() => { setActiveTab('invoice_history'); setIsMenuOpen(false); }}
           >
             <History size={16} /> Invoice History
           </button>
 
           <button 
             className={`nav-btn ${activeTab === 'generator' ? 'active' : ''} ${!selectedClient ? 'disabled-tab' : ''}`}
-            onClick={() => selectedClient && setActiveTab('generator')}
+            onClick={() => { selectedClient && setActiveTab('generator'); setIsMenuOpen(false); }}
             title={!selectedClient ? 'Select a store in the Client Manager first' : ''}
             disabled={!selectedClient}
           >
@@ -177,7 +190,7 @@ export default function App() {
 
           <button 
             className={`nav-btn ${activeTab === 'simulator' ? 'active' : ''} ${!selectedClient ? 'disabled-tab' : ''}`}
-            onClick={() => selectedClient && setActiveTab('simulator')}
+            onClick={() => { selectedClient && setActiveTab('simulator'); setIsMenuOpen(false); }}
             title={!selectedClient ? 'Select a store in the Client Manager first' : ''}
             disabled={!selectedClient}
           >
@@ -187,7 +200,7 @@ export default function App() {
           <button 
             className="nav-btn"
             style={{ marginLeft: 'auto', color: '#ef4444' }}
-            onClick={signOut}
+            onClick={() => { signOut(); setIsMenuOpen(false); }}
           >
             <LogOut size={16} /> Logout
           </button>

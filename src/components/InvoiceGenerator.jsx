@@ -356,7 +356,7 @@ export default function InvoiceGenerator({ selectedClient }) {
         </div>
 
         {/* Totals & Notes */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '3rem', paddingTop: '1rem' }}>
+        <div className="invoice-totals-row" style={{ display: 'flex', justifyContent: 'space-between', gap: '3rem', paddingTop: '1rem' }}>
           <div style={{ flex: 1 }}>
             <div style={{ marginBottom: '1.5rem' }}>
               <div style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.8rem' }}>Notes</div>
@@ -368,7 +368,7 @@ export default function InvoiceGenerator({ selectedClient }) {
             </div>
           </div>
           
-          <div style={{ width: '320px', color: '#334155' }}>
+          <div className="invoice-totals-section" style={{ width: '320px', color: '#334155' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: '1px solid #e2e8f0' }}>
               <span style={{ color: '#64748b' }}>Subtotal</span>
               <span style={{ fontWeight: '500' }}>₹{subtotal.toFixed(2)}</span>
