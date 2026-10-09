@@ -33,6 +33,10 @@ const DEFAULT_CLIENTS = [
 ];
 
 const DEFAULT_CONFIG = {
+  supplierUnitPrice: 0.50,
+  purchaseGstPercent: 18,
+  supplierMoq: 15000,
+  freightPerOrder: 0,
   printerCost: 15000,
   sheetsCost: 320, // for 100 sheets
   stickersPerSheet: 18,

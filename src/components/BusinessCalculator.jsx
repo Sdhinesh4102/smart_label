@@ -8,20 +8,19 @@ export default function BusinessCalculator({ config, onConfigChange, clients = [
 
   // Recalculate metrics based on config (inputs removed, using saved settings)
   const currentConfig = {
-    printerCost: Number(config.printerCost || 15000),
-    sheetsCost: Number(config.sheetsCost || 320),
-    stickersPerSheet: config.stickersPerSheet || 18,
-    coversCost: Number(config.coversCost || 150),
-    inkCostPerSheet: Number(config.inkCostPerSheet || 1.5),
-    priceType1: Number(config.priceType1 || 1.0),
-    priceType2: Number(config.priceType2 || 2.0)
+    supplierUnitPrice: Number(config.supplierUnitPrice ?? 0.50),
+    purchaseGstPercent: Number(config.purchaseGstPercent ?? 18),
+    supplierMoq: Number(config.supplierMoq ?? 15000),
+    freightPerOrder: Number(config.freightPerOrder ?? 0),
+    priceType1: Number(config.priceType1 ?? 1.0),
+    priceType2: Number(config.priceType2 ?? 2.0)
   };
 
   const handlePriceChange = (field, value) => {
     if (onConfigChange) {
       onConfigChange({
         ...config,
-        [field]: Number(value)
+        [field]: field === 'supplierMoq' ? Math.max(1, Number(value) || 1) : Number(value)
       });
     }
   };
@@ -50,23 +49,20 @@ export default function BusinessCalculator({ config, onConfigChange, clients = [
   let mixDesc = '';
 
   if (projectionMix === '50/50') {
-    const projShopsPerType = Math.ceil((projectionVolume / 2) / 500);
-    const simpleProj = metrics.getPackageMetrics(projectionVolume / 2, 'simple', projShopsPerType);
-    const advancedProj = metrics.getPackageMetrics(projectionVolume / 2, 'advanced', projShopsPerType);
+    const simpleProj = metrics.getPackageMetrics(projectionVolume / 2, 'simple');
+    const advancedProj = metrics.getPackageMetrics(projectionVolume / 2, 'advanced');
     blendedRevenue = simpleProj.revenue + advancedProj.revenue;
     blendedCost = simpleProj.materialCost + advancedProj.materialCost;
     blendedProfit = blendedRevenue - blendedCost;
     mixDesc = '50/50 mix of Type-1 & Type-2';
   } else if (projectionMix === 'simple') {
-    const projShops = Math.ceil(projectionVolume / 500);
-    const proj = metrics.getPackageMetrics(projectionVolume, 'simple', projShops);
+    const proj = metrics.getPackageMetrics(projectionVolume, 'simple');
     blendedRevenue = proj.revenue;
     blendedCost = proj.materialCost;
     blendedProfit = proj.profit;
     mixDesc = '100% Type-1 (Simple QR)';
   } else if (projectionMix === 'advanced') {
-    const projShops = Math.ceil(projectionVolume / 500);
-    const proj = metrics.getPackageMetrics(projectionVolume, 'advanced', projShops);
+    const proj = metrics.getPackageMetrics(projectionVolume, 'advanced');
     blendedRevenue = proj.revenue;
     blendedCost = proj.materialCost;
     blendedProfit = proj.profit;
@@ -79,7 +75,7 @@ export default function BusinessCalculator({ config, onConfigChange, clients = [
         <h2 style={{ justifyContent: 'center', fontSize: '2.5rem', background: 'linear-gradient(135deg, #a855f7 0%, #3b82f6 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '0.5rem' }}>
           Performance Dashboard
         </h2>
-        <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>Monitor your live business metrics and project future earnings in real-time.</p>
+        <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>Estimates based on printed sticker counts. Check invoice history for payment status.</p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '2rem', marginBottom: '4rem' }}>
@@ -111,7 +107,7 @@ export default function BusinessCalculator({ config, onConfigChange, clients = [
           <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '1rem', borderRadius: '50%', marginBottom: '1.25rem', boxShadow: '0 0 20px rgba(16, 185, 129, 0.2)' }}>
             <Activity size={40} style={{ color: '#10b981' }} />
           </div>
-          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-secondary)', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '1px' }}>Gross Revenue</h3>
+          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-secondary)', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '1px' }}>Estimated Billing</h3>
           <p style={{ margin: '0.5rem 0 0', fontSize: '3rem', fontWeight: '800', color: '#10b981', textShadow: '0 0 15px rgba(16, 185, 129, 0.3)' }}>
             ₹{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           </p>
@@ -122,7 +118,7 @@ export default function BusinessCalculator({ config, onConfigChange, clients = [
           <div style={{ background: 'rgba(16, 185, 129, 0.15)', padding: '1rem', borderRadius: '50%', marginBottom: '1.25rem', boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)' }}>
             <DollarSign size={40} style={{ color: '#10b981' }} />
           </div>
-          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-secondary)', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '1px' }}>Net Profit</h3>
+          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-secondary)', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '1px' }}>Estimated Contribution</h3>
           <p style={{ margin: '0.5rem 0 0', fontSize: '3rem', fontWeight: '800', color: '#10b981', textShadow: '0 0 15px rgba(16, 185, 129, 0.4)' }}>
             ₹{totalProfit.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           </p>
@@ -136,11 +132,11 @@ export default function BusinessCalculator({ config, onConfigChange, clients = [
           <h3 style={{ justifyContent: 'center', fontSize: '1.8rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
             <TrendingUp className="icon-purple" size={28} /> Earnings Simulator
           </h3>
-          <p style={{ color: 'var(--text-secondary)' }}>Project your monthly revenue by adjusting your expected print volume.</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Project sticker sales and supplier cash needs. Contribution excludes delivery to shops, prizes, labour and sales tax.</p>
         </div>
         
         {/* Pricing Config inline */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '2.5rem', background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap', marginBottom: '2.5rem', background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <label style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>Type-1 Price (₹):</label>
             <input 
@@ -163,6 +159,19 @@ export default function BusinessCalculator({ config, onConfigChange, clients = [
               min="0.5"
             />
           </div>
+          {[
+            ['Supplier label ex-GST (₹)', 'supplierUnitPrice', '0.01', '0'],
+            ['Purchase GST (%)', 'purchaseGstPercent', '1', '0'],
+            ['Supplier MOQ', 'supplierMoq', '1', '1'],
+            ['Freight per supplier order (₹)', 'freightPerOrder', '1', '0']
+          ].map(([label, field, step, min]) => (
+            <div key={field} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <label style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>{label}:</label>
+              <input type="number" value={currentConfig[field]} onChange={(e) => handlePriceChange(field, e.target.value)}
+                style={{ width: '90px', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'white', color: '#1e293b', textAlign: 'center', fontWeight: 'bold' }}
+                step={step} min={min} />
+            </div>
+          ))}
         </div>
         
         <div className="premium-slider-container">
@@ -196,9 +205,9 @@ export default function BusinessCalculator({ config, onConfigChange, clients = [
 
         <div className="premium-proj-grid">
           <div className="premium-proj-col">
-            <span className="premium-proj-title">Sheets Required</span>
-            <span className="premium-proj-val">{Math.ceil(projectionVolume / 18)}</span>
-            <span className="premium-proj-desc">Based on 18 stickers per A4 page</span>
+            <span className="premium-proj-title">Supplier Cash to Order</span>
+            <span className="premium-proj-val">₹{metrics.getSupplierCashOutlay(projectionVolume).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            <span className="premium-proj-desc">MOQ {currentConfig.supplierMoq.toLocaleString()} labels per order; includes purchase GST and entered freight</span>
           </div>
           <div className="premium-proj-col">
             <span className="premium-proj-title">Projected Revenue</span>
@@ -206,14 +215,14 @@ export default function BusinessCalculator({ config, onConfigChange, clients = [
             <span className="premium-proj-desc">{mixDesc}</span>
           </div>
           <div className="premium-proj-col">
-            <span className="premium-proj-title">Material & Shipping</span>
+            <span className="premium-proj-title">Allocated Supplier Cost</span>
             <span className="premium-proj-val">₹{blendedCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-            <span className="premium-proj-desc">Paper, Ink & ₹10 Covers</span>
+            <span className="premium-proj-desc">Labels, purchase GST and entered freight</span>
           </div>
           <div className="premium-proj-col highlighting-profit">
-            <span className="premium-proj-title">Monthly Net Profit</span>
+            <span className="premium-proj-title">Projected Contribution</span>
             <span className="premium-proj-val">₹{blendedProfit.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-            <span className="premium-proj-desc">Pure ROI</span>
+            <span className="premium-proj-desc">Before delivery, prizes, labour and sales tax</span>
           </div>
         </div>
       </div>
