@@ -25,10 +25,6 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signUp = async (email, password) => {
-    return await supabase.auth.signUp({ email, password })
-  }
-
   const signIn = async (email, password) => {
     return await supabase.auth.signInWithPassword({ email, password })
   }
@@ -38,7 +34,6 @@ export const AuthProvider = ({ children }) => {
   }
 
   const value = {
-    signUp,
     signIn,
     signOut,
     user,
