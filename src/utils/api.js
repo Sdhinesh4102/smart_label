@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { nextInvoiceNumber } from './invoiceNumbers';
 
 // Clients (Stores) API
 export const getClientsAsync = async () => {
@@ -215,6 +216,14 @@ export const claimQRCodeAsync = async (qrId, claimerName, claimerPhone) => {
 };
 
 // --- Invoices API ---
+export const getNextInvoiceNumberAsync = async () => {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('invoice_number');
+  if (error) throw error;
+  return nextInvoiceNumber(data.map(invoice => invoice.invoice_number));
+};
+
 export const getInvoicesAsync = async () => {
   const { data, error } = await supabase
     .from('invoices')

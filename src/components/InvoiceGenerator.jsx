@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Printer, Upload, Download, FileText } from 'lucide-react';
-import { saveInvoiceAsync } from '../utils/api';
+import { getNextInvoiceNumberAsync, saveInvoiceAsync } from '../utils/api';
 
 export default function InvoiceGenerator({ selectedClient }) {
   // Load saved 'From' details
@@ -24,6 +24,22 @@ export default function InvoiceGenerator({ selectedClient }) {
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     };
   });
+  const [numberReady, setNumberReady] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    getNextInvoiceNumberAsync().then(number => {
+      if (active) {
+        setInvoiceMeta(meta => ({ ...meta, number }));
+        setNumberReady(true);
+      }
+    }).catch(error => {
+      console.error('Could not load invoice number:', error);
+      if (active) setNumberReady(false);
+    });
+    return () => { active = false; };
+  }, []);
 
   // Logo & Positioning
   const [logo, setLogo] = useState(() => localStorage.getItem('invoiceLogo') || null);
@@ -130,11 +146,23 @@ export default function InvoiceGenerator({ selectedClient }) {
   const total = subtotal + taxAmount - Number(discountAmount);
 
   const printInvoice = async () => {
+    if (!numberReady || isSaving) return;
+    setIsSaving(true);
     const isValidUuid = selectedClient && selectedClient.id && String(selectedClient.id).length > 10;
-    
-    // Background save to database
-    await saveInvoiceAsync({
-      invoice_number: invoiceMeta.number,
+
+    // Recheck the database immediately before saving. Local storage can be
+    // stale after switching browsers or another admin creating an invoice.
+    let number;
+    try {
+      number = await getNextInvoiceNumberAsync();
+    } catch (error) {
+      console.error('Could not check invoice number:', error);
+      alert('Could not check the next invoice number. Please try again.');
+      setIsSaving(false);
+      return;
+    }
+    const saved = await saveInvoiceAsync({
+      invoice_number: number,
       client_id: isValidUuid ? selectedClient.id : null,
       client_name: toDetails.name || 'Unknown Client',
       date: invoiceMeta.date,
@@ -144,13 +172,17 @@ export default function InvoiceGenerator({ selectedClient }) {
       items: items
     });
 
-    const currentNumStr = invoiceMeta.number.replace(/\D/g, '');
-    const currentNum = parseInt(currentNumStr) || 1;
-    localStorage.setItem('nextInvoiceNum', currentNum + 1);
-    
-    // Slight delay to ensure React commits state before printing
+    if (!saved) {
+      setIsSaving(false);
+      return;
+    }
+    setInvoiceMeta(meta => ({ ...meta, number }));
+    localStorage.setItem('nextInvoiceNum', Number(number.slice(4)) + 1);
+
+    // Let React render the saved number before the print dialog opens.
     setTimeout(() => {
       window.print();
+      setIsSaving(false);
     }, 100);
   };
 
@@ -198,19 +230,19 @@ export default function InvoiceGenerator({ selectedClient }) {
           </h2>
           <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0 0' }}>Create professional invoices for your clients.</p>
         </div>
-        <button className="hide-on-print" onClick={printInvoice} style={{ 
+        <button className="hide-on-print" onClick={printInvoice} disabled={!numberReady || isSaving} style={{
           display: 'flex', alignItems: 'center', gap: '0.75rem',
           background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
           color: 'white', border: 'none', padding: '0.75rem 1.5rem',
           borderRadius: '50px', fontWeight: '600',
           boxShadow: '0 8px 20px rgba(16, 185, 129, 0.3)',
-          cursor: 'pointer', transition: 'all 0.3s ease',
+          cursor: numberReady && !isSaving ? 'pointer' : 'not-allowed', transition: 'all 0.3s ease',
           textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.85rem'
         }}
         onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
         onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
         >
-          <Printer size={18} /> Download / Print PDF
+          <Printer size={18} /> {isSaving ? 'Saving...' : numberReady ? 'Download / Print PDF' : 'Invoice Number Unavailable'}
         </button>
       </div>
 
@@ -241,7 +273,7 @@ export default function InvoiceGenerator({ selectedClient }) {
                 <tr>
                   <td style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', paddingRight: '1rem', paddingBottom: '0.5rem' }}>Invoice #</td>
                   <td style={{ paddingBottom: '0.5rem' }}>
-                    <input className="invoice-input text-right hide-on-print" style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '1rem', width: '140px', padding: 0 }} value={invoiceMeta.number} onChange={e => handleMetaChange('number', e.target.value)} />
+                    <input className="invoice-input text-right hide-on-print" style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '1rem', width: '140px', padding: 0 }} value={invoiceMeta.number} readOnly />
                     <span className="print-only" style={{ display: 'none', fontWeight: 'bold', color: '#0f172a', fontSize: '1rem' }}>{invoiceMeta.number}</span>
                   </td>
                 </tr>
