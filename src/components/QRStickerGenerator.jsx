@@ -33,6 +33,7 @@ export default function QRStickerGenerator({ client, config, onConfigChange }) {
     if (client) {
       setWinnersCount(prev => Math.min(quantity, client.rewardCount || 1));
       setQrCodes([]); // Clear previous QRs so they must generate explicitly for the new client
+      setHasSavedRun(false);
     }
   }, [client, quantity]);
 
@@ -74,6 +75,7 @@ export default function QRStickerGenerator({ client, config, onConfigChange }) {
     if (!client || isGeneratingRef.current) return;
     isGeneratingRef.current = true;
     setIsGenerating(true);
+    setHasSavedRun(false);
     const codes = [];
 
     // Base URL structure: [TargetUrl]?store=[clientId]
@@ -166,15 +168,23 @@ export default function QRStickerGenerator({ client, config, onConfigChange }) {
       }
     }
 
-    setQrCodes(codes);
-    
-    // Save to DB immediately so user can test scanning from screen before printing
-    const actualWinners = codes.filter(c => c.isWinner).length;
-    await savePrintRunAsync(client.id, codes.length, actualWinners, codes);
-    setHasSavedRun(true);
-
-    setIsGenerating(false);
-    isGeneratingRef.current = false;
+    try {
+      if (codes.length !== quantity) {
+        throw new Error('Some QR images could not be generated. No sheet was saved.');
+      }
+      // A sheet is printable only after every QR has been saved successfully.
+      const actualWinners = codes.filter(c => c.isWinner).length;
+      const runId = await savePrintRunAsync(client.id, codes.length, actualWinners, codes);
+      if (!runId) throw new Error('The QR batch could not be saved. Please try again.');
+      setQrCodes(codes);
+      setHasSavedRun(true);
+    } catch (error) {
+      setQrCodes([]);
+      alert(error.message);
+    } finally {
+      setIsGenerating(false);
+      isGeneratingRef.current = false;
+    }
   };
 
 
@@ -190,6 +200,7 @@ export default function QRStickerGenerator({ client, config, onConfigChange }) {
 
   const handlePrint = async () => {
     // Only log analytics when they actually print
+    if (!hasSavedRun || qrCodes.length === 0) return;
     if (qrCodes.length > 0) {
       await logPrintRunAsync(client.id, qrCodes.length);
     }
@@ -448,7 +459,7 @@ export default function QRStickerGenerator({ client, config, onConfigChange }) {
             <button className="btn btn-secondary btn-icon" onClick={generateQRs} disabled={isGenerating || isSaving}>
               <RefreshCw size={16} className={isGenerating ? 'spin' : ''} /> Generate QR Codes
             </button>
-            <button className="btn btn-primary btn-icon" onClick={handlePrint} disabled={qrCodes.length === 0 || isSaving}>
+            <button className="btn btn-primary btn-icon" onClick={handlePrint} disabled={!hasSavedRun || qrCodes.length === 0 || isSaving}>
               <Printer size={16} /> {isSaving ? 'Saving...' : 'Print & Save Sheet (Ctrl+P)'}
             </button>
           </div>

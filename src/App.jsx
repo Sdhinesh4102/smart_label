@@ -36,16 +36,19 @@ const parseHashRoute = () => {
     const parts = cleanHash.split('?');
     const clientId = parts[0];
     let coupon = '';
+    let qrId = '';
     
     if (parts[1]) {
       const searchParams = new URLSearchParams(parts[1]);
       coupon = searchParams.get('coupon') || '';
+      qrId = searchParams.get('qr_id') || '';
     }
     
     return {
       type: 'store',
       clientId,
-      coupon
+      coupon,
+      qrId
     };
   }
   const cleanHash = hash.replace('#', '');
@@ -133,6 +136,7 @@ export default function App() {
       <CustomerStoreView 
         client={client} 
         simulatedCouponCode={route.coupon} 
+        scanQrId={route.qrId}
         isMock={false} 
       />
     );

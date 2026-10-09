@@ -122,9 +122,8 @@ export const savePrintRunAsync = async (clientId, quantity, winnersCount, qrCode
   
   const runId = runData[0].id;
   
-  // 2. Prepare ONLY winning QR Codes for bulk insert
-  const winningQRs = qrCodesList.filter(qr => qr.isWinner);
-  const qrPayloads = winningQRs.map(qr => ({
+  // Save every QR so losing stickers can also be recognized after one reveal.
+  const qrPayloads = qrCodesList.map(qr => ({
     id: qr.uuid, // Use the pre-generated UUID from the frontend
     client_id: clientId,
     print_run_id: runId,
@@ -134,7 +133,7 @@ export const savePrintRunAsync = async (clientId, quantity, winnersCount, qrCode
     sticker_number: qr.stickerNumber
   }));
   
-  // 3. Insert Winning QR Codes (if any)
+  // 3. Insert every QR in the batch.
   if (qrPayloads.length > 0) {
     const { error: qrError } = await supabase
       .from('qr_codes')
@@ -142,6 +141,13 @@ export const savePrintRunAsync = async (clientId, quantity, winnersCount, qrCode
       
     if (qrError) {
       console.error('Error saving QR codes:', qrError);
+      // A failed batch must never be printed as though its QRs were active.
+      const { error: rollbackError } = await supabase
+        .from('print_runs')
+        .delete()
+        .eq('id', runId);
+      if (rollbackError) console.error('Error rolling back print run:', rollbackError);
+      return null;
     }
   }
   
@@ -167,24 +173,24 @@ export const logPrintRunAsync = async (clientId, quantity) => {
 export const getQRCodeDetailsAsync = async (qrId) => {
   const { data, error } = await supabase
     .from('qr_codes')
-    .select('*, store_clients(name)')
+    .select('id, client_id, is_winner, is_claimed, coupon_code')
     .eq('id', qrId)
     .single();
     
-  if (error || !data) {
-    console.error('Error fetching QR details:', error);
+  if (error?.code === 'PGRST116' || !data && !error) {
     return null;
+  }
+  if (error) {
+    console.error('Error fetching QR details:', error);
+    throw error;
   }
   
   return {
     id: data.id,
     clientId: data.client_id,
-    storeName: data.store_clients?.name,
     isWinner: data.is_winner,
     isClaimed: data.is_claimed,
-    couponCode: data.coupon_code,
-    claimerName: data.claimer_name,
-    claimerPhone: data.claimer_phone
+    couponCode: data.coupon_code
   };
 };
 
@@ -198,13 +204,14 @@ export const claimQRCodeAsync = async (qrId, claimerName, claimerPhone) => {
       scanned_at: new Date().toISOString()
     })
     .eq('id', qrId)
-    .select();
+    .eq('is_claimed', false)
+    .select('id');
     
   if (error) {
     console.error('Error claiming QR code:', error);
     return false;
   }
-  return true;
+  return data?.length === 1;
 };
 
 // --- Invoices API ---

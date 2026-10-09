@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { MapPin, Instagram, MessageSquare, Facebook, Gift, Sparkles, RefreshCw, User, Phone, CheckCircle, Globe } from 'lucide-react';
 import { getQRCodeDetailsAsync, claimQRCodeAsync } from '../utils/api';
+import { classifyScan, isValidQrId } from '../utils/scanStatus';
 
-export default function CustomerStoreView({ client, simulatedCouponCode = '', simulatedWin = true, isMock = false }) {
+export default function CustomerStoreView({ client, simulatedCouponCode = '', simulatedWin = true, scanQrId = '', isMock = false }) {
   const [scratched, setScratched] = useState(false);
   const [ticketCode, setTicketCode] = useState('');
   const scratchCanvasRef = useRef(null);
@@ -13,6 +14,9 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
   const [qrDetails, setQrDetails] = useState(null);
   const [loading, setLoading] = useState(!isMock);
   const [isClaimedByOther, setIsClaimedByOther] = useState(false);
+  const [invalidQr, setInvalidQr] = useState(false);
+  const [legacyLoser, setLegacyLoser] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   
   // Form State
   const [formSubmitted, setFormSubmitted] = useState(isMock);
@@ -22,60 +26,91 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
 
   // Extract coupon from URL query param if not in mock simulator mode
   const [couponCode, setCouponCode] = useState(simulatedCouponCode);
-  const [isWinner, setIsWinner] = useState(simulatedWin);
+  const [isWinner, setIsWinner] = useState(isMock && simulatedWin);
 
   useEffect(() => {
     if (!isMock) {
-      // Parse URL parameters from the hash for live scanning simulation
-      const hashQuery = window.location.hash.split('?')[1] || '';
-      const params = new URLSearchParams(hashQuery);
-      const urlQrId = params.get('qr_id');
+      let cancelled = false;
+      setLoading(true);
+      setInvalidQr(false);
+      setLegacyLoser(false);
+      setLoadError(false);
+      setIsClaimedByOther(false);
+      setFormSubmitted(false);
+      setScratched(false);
+      setTicketCode('');
+      setCouponCode('');
+      setIsWinner(false);
+      setQrDetails(null);
+      const urlQrId = scanQrId;
       
-      if (urlQrId) {
-        setQrId(urlQrId);
-        getQRCodeDetailsAsync(urlQrId).then(details => {
-          if (details) {
-            setQrDetails(details);
-            setIsWinner(details.isWinner);
-            setCouponCode(details.couponCode);
-            if (details.isClaimed) {
-              setIsClaimedByOther(true);
-              setFormSubmitted(true); // skip form if already claimed
-            }
-          } else {
-            // If it's not in the database, it's a losing QR code
-            setIsWinner(false);
-          }
-          setLoading(false);
-        });
-      } else {
+      if (!isValidQrId(urlQrId)) {
+        setInvalidQr(true);
         setLoading(false);
+        return;
       }
+
+      setQrId(urlQrId);
+      getQRCodeDetailsAsync(urlQrId).then(details => {
+        if (cancelled) return;
+        const status = classifyScan(client?.id, urlQrId, details);
+        if (status === 'invalid') {
+          setInvalidQr(true);
+        } else if (status === 'legacy_loser') {
+          // Previously printed losing stickers were never saved. Keep their
+          // non-winning result available without collecting customer details.
+          setLegacyLoser(true);
+          setIsWinner(false);
+        } else {
+          setQrDetails(details);
+          setIsWinner(details.isWinner);
+          setCouponCode(details.couponCode || '');
+          if (status === 'claimed') {
+            setIsClaimedByOther(true);
+            setFormSubmitted(true);
+          }
+        }
+      }).catch(() => {
+        if (!cancelled) setLoadError(true);
+      }).finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+      return () => { cancelled = true; };
     } else {
       setCouponCode(simulatedCouponCode);
       setIsWinner(simulatedWin);
       setFormSubmitted(true); // Skip form in mock mode by default
     }
-  }, [simulatedCouponCode, simulatedWin, isMock]);
+  }, [simulatedCouponCode, simulatedWin, isMock, client?.id, scanQrId]);
 
   // Handle Form Submission
   const handleClaimSubmit = async (e) => {
     e.preventDefault();
-    if (!claimerName || !claimerPhone) return;
+    if (!claimerName || !claimerPhone || isSubmitting) return;
     
     setIsSubmitting(true);
-    if (!isMock && qrId) {
-      const success = await claimQRCodeAsync(qrId, claimerName, claimerPhone);
-      if (success) {
+    try {
+      if (isMock) {
         setFormSubmitted(true);
-      } else {
-        alert("Failed to register. Please try again.");
+      } else if (qrId && qrDetails) {
+        const success = await claimQRCodeAsync(qrId, claimerName, claimerPhone);
+        if (success) {
+          setFormSubmitted(true);
+        } else {
+          const current = await getQRCodeDetailsAsync(qrId);
+          if (current?.isClaimed) {
+            setIsClaimedByOther(true);
+          } else {
+            alert("Failed to register. Please try again.");
+          }
+        }
       }
-    } else {
-      // Mock mode
-      setFormSubmitted(true);
+    } catch (error) {
+      console.error('Error registering QR scan:', error);
+      alert('We could not check this QR code right now. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   // Generate validation code once coupon is unlocked
@@ -103,7 +138,7 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
         setTicketCode(`${storeInitials}-TRYAGAIN-${randomId}`);
       }
     }
-  }, [scratched, couponCode, client.name, isWinner, isClaimedByOther]);
+  }, [scratched, couponCode, client?.name, isWinner, isClaimedByOther]);
 
   // Handle Canvas scratch effect (for high-fidelity desktop/mobile simulation)
   useEffect(() => {
@@ -235,6 +270,22 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
     );
   }
 
+  if (invalidQr) {
+    return (
+      <div className="store-view-error">
+        <p>Invalid QR code. Please scan the QR code printed on your sticker.</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="store-view-error">
+        <p>We could not check this QR code right now. Please try again shortly.</p>
+      </div>
+    );
+  }
+
   // Pre-fill whatsapp message URL
   const encodedMsg = encodeURIComponent(
     `Hello ${client.name}! I scanned your bottle QR code and would like to order or redeem an offer.`
@@ -322,7 +373,12 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
               ) : (
                 // Advanced QR with Coupon Codes
                 <div className="promo-card-body coupon-promo">
-                  {isClaimedByOther ? (
+                  {legacyLoser ? (
+                    <div className="reveal-content-container animate-reveal" style={{ textAlign: 'center' }}>
+                      <div className="offer-title">😢 Better Luck Next Time!</div>
+                      <p className="offer-subtext">This sticker did not contain a reward. Try another sticker on your next order!</p>
+                    </div>
+                  ) : isClaimedByOther ? (
                     <div className="reveal-content-container animate-reveal" style={{ textAlign: 'center' }}>
                       <div className="offer-title" style={{ color: '#ef4444' }}>⚠️ ALREADY CLAIMED</div>
                       <p className="offer-subtext" style={{ padding: '0.25rem 0.5rem', lineHeight: '1.4' }}>
