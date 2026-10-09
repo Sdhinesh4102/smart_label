@@ -280,6 +280,9 @@ export default function QRStickerGenerator({ client, config, onConfigChange }) {
 
           <div className="cal-col">
             <h4>Sticker Size (mm)</h4>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setMargins(current => ({ ...current, width: 50, height: 30 }))}>
+              Use supplier 50 × 30 mm size
+            </button>
             <div className="cal-input-row">
               <div className="cal-input-group">
                 <label>Width</label>

@@ -50,8 +50,8 @@ const DEFAULT_CONFIG = {
     right: 10,
     colGap: 5,
     rowGap: 5,
-    width: 60,
-    height: 40
+    width: 50,
+    height: 30
   },
   // Sticker visual settings
   stickerText: "Don't Throw Away—Scan & Win!",
