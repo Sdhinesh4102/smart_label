@@ -4,6 +4,7 @@ import { MapPin, Instagram, MessageSquare, Facebook, Gift, Sparkles, RefreshCw, 
 import { getQRCodeDetailsAsync, claimQRCodeAsync } from '../utils/api';
 import { classifyScan, isValidQrId } from '../utils/scanStatus';
 import { safeHttpUrl, socialUrl, whatsappUrl } from '../utils/publicLinks';
+import { normalizeCustomerInput } from '../utils/customerInput';
 
 export default function CustomerStoreView({ client, simulatedCouponCode = '', simulatedWin = true, scanQrId = '', isMock = false }) {
   const [scratched, setScratched] = useState(false);
@@ -24,6 +25,7 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
   const [claimerName, setClaimerName] = useState('');
   const [claimerPhone, setClaimerPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
 
   // Extract coupon from URL query param if not in mock simulator mode
   const [couponCode, setCouponCode] = useState(simulatedCouponCode);
@@ -87,14 +89,20 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
   // Handle Form Submission
   const handleClaimSubmit = async (e) => {
     e.preventDefault();
-    if (!claimerName || !claimerPhone || isSubmitting) return;
+    if (isSubmitting) return;
+    const customer = normalizeCustomerInput(claimerName, claimerPhone);
+    if (customer.error) {
+      setFormError(customer.error);
+      return;
+    }
+    setFormError('');
     
     setIsSubmitting(true);
     try {
       if (isMock) {
         setFormSubmitted(true);
       } else if (qrId && qrDetails) {
-        const success = await claimQRCodeAsync(qrId, claimerName, claimerPhone);
+        const success = await claimQRCodeAsync(qrId, customer.name, customer.phone);
         if (success) {
           setFormSubmitted(true);
         } else {
@@ -389,6 +397,7 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
                     <div className="claim-form-container" style={{ padding: '1rem', background: '#f5f5f7', borderRadius: '8px' }}>
                       <h4 style={{ margin: '0 0 1rem', fontSize: '1.1rem', color: '#1d1d1f', textAlign: 'center' }}>Register to Scratch!</h4>
                       <form onSubmit={handleClaimSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {formError && <p role="alert" style={{ margin: 0, color: '#b91c1c' }}>{formError}</p>}
                         <div>
                           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', marginBottom: '0.25rem', color: '#515154' }}>
                             <User size={14} /> Your Full Name
@@ -399,6 +408,7 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
                             placeholder="John Doe"
                             value={claimerName}
                             onChange={(e) => setClaimerName(e.target.value)}
+                            maxLength={100}
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db' }}
                           />
                         </div>
@@ -412,6 +422,7 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
                             placeholder="e.g. +91 9876543210"
                             value={claimerPhone}
                             onChange={(e) => setClaimerPhone(e.target.value)}
+                            maxLength={25}
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db' }}
                           />
                         </div>
