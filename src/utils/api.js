@@ -118,6 +118,25 @@ export const saveClientAsync = async (client) => {
 };
 
 export const deleteClientAsync = async (id) => {
+  // A printed/distributed QR must never lose its store page through the UI.
+  const { count, error: runsError } = await supabase
+    .from('print_runs')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', id);
+  if (runsError) {
+    console.error('Could not check store QR batches:', runsError);
+    return { success: false, reason: 'check_failed' };
+  }
+  if (count > 0) return { success: false, reason: 'has_qrs' };
+
+  const { data: client, error: clientError } = await supabase
+    .from('store_clients')
+    .select('stickers_printed')
+    .eq('id', id)
+    .maybeSingle();
+  if (clientError || !client) return { success: false, reason: 'check_failed' };
+  if (Number(client.stickers_printed) > 0) return { success: false, reason: 'has_qrs' };
+
   const { error } = await supabase
     .from('store_clients')
     .delete()
@@ -125,9 +144,9 @@ export const deleteClientAsync = async (id) => {
     
   if (error) {
     console.error('Error deleting client:', error);
-    return false;
+    return { success: false, reason: 'delete_failed' };
   }
-  return true;
+  return { success: true };
 };
 
 // Print Runs and QR Codes API
