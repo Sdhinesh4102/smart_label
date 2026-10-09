@@ -33,6 +33,32 @@ export const getClientsAsync = async () => {
   }));
 };
 
+// Public scan pages need only one store and the fields shown to customers.
+// Database RLS must also enforce this boundary; a narrow query alone does
+// not protect the table from a direct API request.
+export const getPublicClientAsync = async (clientId) => {
+  const { data, error } = await supabase
+    .from('store_clients')
+    .select('id, name, location_url, instagram, whatsapp, facebook, website, qr_type, reward_code, logo_data, offer_text')
+    .eq('id', clientId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    id: data.id,
+    name: data.name,
+    locationUrl: data.location_url,
+    instagram: data.instagram,
+    whatsapp: data.whatsapp,
+    facebook: data.facebook,
+    website: data.website,
+    qrType: data.qr_type,
+    rewardCode: data.reward_code,
+    logoData: data.logo_data,
+    offerText: data.offer_text
+  };
+};
+
 export const saveClientAsync = async (client) => {
   const payload = {
     name: client.name,

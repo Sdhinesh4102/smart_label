@@ -3,7 +3,7 @@ import {
   getPrinterConfig, 
   savePrinterConfig 
 } from './utils/localStorage';
-import { getClientsAsync } from './utils/api';
+import { getClientsAsync, getPublicClientAsync } from './utils/api';
 import BusinessCalculator from './components/BusinessCalculator';
 import ClientManager from './components/ClientManager';
 import QRStickerGenerator from './components/QRStickerGenerator';
@@ -67,11 +67,14 @@ const parseHashRoute = () => {
 export default function App() {
   const { user, signOut } = useAuth();
   const [clients, setClients] = useState([]);
+  const [publicClient, setPublicClient] = useState(null);
+  const [publicClientLoading, setPublicClientLoading] = useState(false);
+  const [publicClientError, setPublicClientError] = useState(false);
   const [config, setConfig] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   
   // Routing State
-  const [route, setRoute] = useState({ type: 'dashboard', tab: 'calculator' });
+  const [route, setRoute] = useState(parseHashRoute);
   const activeTab = route.type === 'dashboard' ? route.tab : 'calculator';
   
   const setActiveTab = (tab) => {
@@ -80,19 +83,9 @@ export default function App() {
   const [simulatedWin, setSimulatedWin] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Load initial data
+  // Load local printer preferences and track URL changes.
   useEffect(() => {
-    const loadData = async () => {
-      const loadedClients = await getClientsAsync();
-      setClients(loadedClients);
-      const loadedConfig = getPrinterConfig();
-      setConfig(loadedConfig);
-    };
-    
-    loadData();
-
-    // Initial route check
-    setRoute(parseHashRoute());
+    setConfig(getPrinterConfig());
 
     // Listen to hash changes (for client-side routing)
     const handleHashChange = () => {
@@ -101,6 +94,28 @@ export default function App() {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (route.type === 'store') {
+      setPublicClient(null);
+      setPublicClientLoading(true);
+      setPublicClientError(false);
+      getPublicClientAsync(route.clientId).then(client => {
+        if (active) setPublicClient(client);
+      }).catch(error => {
+        console.error('Could not load public store:', error);
+        if (active) setPublicClientError(true);
+      }).finally(() => {
+        if (active) setPublicClientLoading(false);
+      });
+    } else if (user) {
+      getClientsAsync().then(loadedClients => {
+        if (active) setClients(loadedClients);
+      });
+    }
+    return () => { active = false; };
+  }, [route.type, route.clientId, user]);
 
   // Update client list state (API save handled by ClientManager)
   const handleSaveClients = (newClients) => {
@@ -131,10 +146,11 @@ export default function App() {
 
   // --- 1. RENDER STANDALONE CUSTOMER SCAN PAGE ---
   if (route.type === 'store') {
-    const client = clients.find(c => c.id === route.clientId);
+    if (publicClientLoading) return <div className="app-loading">Loading store...</div>;
+    if (publicClientError) return <div className="app-loading">Store information is temporarily unavailable. Please try again shortly.</div>;
     return (
       <CustomerStoreView 
-        client={client} 
+        client={publicClient}
         simulatedCouponCode={route.coupon} 
         scanQrId={route.qrId}
         isMock={false} 
