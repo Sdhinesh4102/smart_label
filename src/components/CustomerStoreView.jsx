@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti';
 import { MapPin, Instagram, MessageSquare, Facebook, Gift, Sparkles, RefreshCw, User, Phone, CheckCircle, Globe } from 'lucide-react';
 import { getQRCodeDetailsAsync, claimQRCodeAsync } from '../utils/api';
 import { classifyScan, isValidQrId } from '../utils/scanStatus';
+import { safeHttpUrl, socialUrl, whatsappUrl } from '../utils/publicLinks';
 
 export default function CustomerStoreView({ client, simulatedCouponCode = '', simulatedWin = true, scanQrId = '', isMock = false }) {
   const [scratched, setScratched] = useState(false);
@@ -287,13 +288,12 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
   }
 
   // Pre-fill whatsapp message URL
-  const encodedMsg = encodeURIComponent(
-    `Hello ${client.name}! I scanned your bottle QR code and would like to order or redeem an offer.`
-  );
-  const waUrl = client.whatsapp ? `https://wa.me/${client.whatsapp}?text=${encodedMsg}` : null;
-  const igUrl = client.instagram ? `https://instagram.com/${client.instagram}` : null;
-  const fbUrl = client.facebook ? `https://facebook.com/${client.facebook}` : null;
-  const webUrl = client.website ? client.website : null;
+  const waUrl = whatsappUrl(client.whatsapp,
+    `Hello ${client.name}! I scanned your bottle QR code and would like to order or redeem an offer.`);
+  const igUrl = socialUrl('instagram', client.instagram);
+  const fbUrl = socialUrl('facebook', client.facebook);
+  const webUrl = safeHttpUrl(client.website);
+  const mapsUrl = safeHttpUrl(client.locationUrl);
 
   return (
     <div className={`customer-store-view ${isMock ? 'in-simulator' : 'standalone-page'}`}>
@@ -333,8 +333,8 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
                   <Globe size={18} /><span>Store Website</span>
                 </a>
               )}
-              {client.locationUrl && (
-                <a href={client.locationUrl} target="_blank" rel="noopener noreferrer" className="link-button maps-btn">
+              {mapsUrl && (
+                <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="link-button maps-btn">
                   <MapPin size={18} /><span>Navigate to Store Location</span>
                 </a>
               )}
