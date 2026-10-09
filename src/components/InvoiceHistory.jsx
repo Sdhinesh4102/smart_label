@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getInvoicesAsync, updateInvoiceStatusAsync, deleteInvoiceAsync } from '../utils/api';
 import { FileText, Trash2, Clock, CheckCircle, AlertCircle, Download, FileJson, FileSpreadsheet, Printer } from 'lucide-react';
+import { csvCell } from '../utils/vendorExport';
+import { escapeHtml } from '../utils/escapeHtml';
 
 export default function InvoiceHistory() {
   const [invoices, setInvoices] = useState([]);
@@ -60,6 +62,7 @@ export default function InvoiceHistory() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
     setShowExportMenu(false);
   };
 
@@ -72,13 +75,13 @@ export default function InvoiceHistory() {
     const headers = ['Invoice Number', 'Client', 'Date', 'Due Date', 'Total Amount', 'Status'];
     const rows = invoices.map(inv => [
       inv.invoice_number,
-      `"${inv.client_name}"`,
+      inv.client_name,
       inv.date,
       inv.due_date,
       inv.total_amount,
       inv.status
     ]);
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const csvContent = [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
     triggerDownload(csvContent, `invoices_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv;charset=utf-8;');
   };
 
@@ -97,11 +100,11 @@ export default function InvoiceHistory() {
           <tbody>
             ${invoices.map(inv => `
               <tr>
-                <td>${inv.invoice_number}</td>
-                <td>${inv.client_name}</td>
-                <td>${new Date(inv.date).toLocaleDateString()}</td>
-                <td>${inv.total_amount}</td>
-                <td>${inv.status}</td>
+                <td>${escapeHtml(inv.invoice_number)}</td>
+                <td>${escapeHtml(inv.client_name)}</td>
+                <td>${escapeHtml(new Date(inv.date).toLocaleDateString())}</td>
+                <td>${escapeHtml(inv.total_amount)}</td>
+                <td>${escapeHtml(inv.status)}</td>
               </tr>
             `).join('')}
           </tbody>

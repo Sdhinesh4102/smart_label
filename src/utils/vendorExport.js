@@ -1,4 +1,4 @@
-const csvCell = (value) => {
+export const csvCell = (value) => {
   const text = String(value ?? '');
   // Spreadsheet programs can interpret untrusted shop names as formulas.
   const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
