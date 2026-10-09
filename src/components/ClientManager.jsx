@@ -370,7 +370,7 @@ export default function ClientManager({ clients, onSaveClients, onSelectClient, 
                       <span className={`badge ${client.qrType === 'simple' ? 'badge-blue' : 'badge-purple'}`}>
                         {client.qrType === 'simple' ? 'Type 1: Simple QR' : 'Type 2: Advanced Coupon QR'}
                       </span>
-                      <span className="badge badge-gray">Registered: {client.createdDate}</span>
+                      <span className="badge badge-gray">Registered: {client.createdAt ? new Date(client.createdAt).toLocaleDateString('en-IN') : '—'}</span>
                     </div>
                   </div>
 
