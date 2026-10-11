@@ -4,6 +4,7 @@ import QRCodeStyling from 'qr-code-styling';
 import { QrCode, Printer, Sliders, RefreshCw, Download, Layers } from 'lucide-react';
 import { savePrintRunAsync, logPrintRunAsync } from '../utils/api';
 import { createVendorCsv } from '../utils/vendorExport';
+import { selectWinningPositions } from '../utils/winnerAllocation';
 
 export default function QRStickerGenerator({ client, config, onConfigChange }) {
   const [targetBaseUrl, setTargetBaseUrl] = useState(
@@ -85,14 +86,10 @@ export default function QRStickerGenerator({ client, config, onConfigChange }) {
     // Base URL structure: [TargetUrl]?store=[clientId]
     const baseStoreUrl = `${targetBaseUrl}#/store/${client.id}`;
 
-    // Select first N indices to be winners
-    const winningIndices = new Set();
-    if (client.qrType === 'advanced') {
-      const targetWinners = Math.min(winnersCount, quantity);
-      for (let i = 0; i < targetWinners; i++) {
-        winningIndices.add(i);
-      }
-    }
+    const winningIndices = selectWinningPositions(
+      quantity,
+      client.qrType === 'advanced' ? winnersCount : 0
+    );
 
     for (let i = 0; i < quantity; i++) {
       let finalUrl = baseStoreUrl;
