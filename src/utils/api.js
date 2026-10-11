@@ -39,7 +39,7 @@ export const getClientsAsync = async () => {
 export const getPublicClientAsync = async (clientId) => {
   const { data, error } = await supabase
     .from('store_clients')
-    .select('id, name, location_url, instagram, whatsapp, facebook, website, qr_type, reward_code, logo_data, offer_text')
+    .select('id, name, location_url, instagram, whatsapp, facebook, website, qr_type, logo_data, offer_text')
     .eq('id', clientId)
     .maybeSingle();
   if (error) throw error;
@@ -53,7 +53,6 @@ export const getPublicClientAsync = async (clientId) => {
     facebook: data.facebook,
     website: data.website,
     qrType: data.qr_type,
-    rewardCode: data.reward_code,
     logoData: data.logo_data,
     offerText: data.offer_text
   };
