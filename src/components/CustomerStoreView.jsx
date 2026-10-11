@@ -389,7 +389,7 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
                     <div className="reveal-content-container animate-reveal" style={{ textAlign: 'center' }}>
                       <div className="offer-title" style={{ color: '#ef4444' }}>{isRedeemed ? '⚠️ ALREADY REDEEMED' : '⚠️ ALREADY SCANNED'}</div>
                       <p className="offer-subtext" style={{ padding: '0.25rem 0.5rem', lineHeight: '1.4' }}>
-                        {isRedeemed ? 'This reward was already redeemed at the shop.' : 'This QR code was already revealed on another phone.'}
+                        {isRedeemed ? 'This reward was already redeemed at the shop.' : 'This QR code was already revealed in another browser or device.'}
                       </p>
                     </div>
                   ) : !formSubmitted ? (
