@@ -64,7 +64,8 @@ physical label at the store; do not promise a prize or one-time verification.
 
 1. Back up the live database. Confirm the owner Auth user ID in the first SQL
    migration matches the account that should manage all stores.
-2. Apply `supabase/migrations/20261011_secure_qr_flow.sql` in Supabase SQL Editor.
+2. Apply `supabase/migrations/20261011_secure_qr_flow.sql` and then
+   `supabase/migrations/20261011_verify_ticket.sql` in Supabase SQL Editor.
    This adds the secure functions while retaining the existing public policies.
 3. Deploy the matching frontend and test a new QR, same-browser ticket return,
    different-browser rejection, and cashier redemption with a controlled test

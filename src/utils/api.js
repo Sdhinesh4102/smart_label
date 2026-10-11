@@ -213,6 +213,12 @@ export const redeemTicketAsync = async (ticketCode) => {
   return data;
 };
 
+export const verifyTicketAsync = async (ticketCode) => {
+  const { data, error } = await supabase.rpc('verify_ticket', { p_ticket_code: ticketCode });
+  if (error) throw error;
+  return data;
+};
+
 export const isAppAdminAsync = async () => {
   const { data, error } = await supabase.rpc('is_app_admin');
   if (error) throw error;
