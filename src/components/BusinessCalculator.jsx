@@ -75,7 +75,7 @@ export default function BusinessCalculator({ config, onConfigChange, clients = [
         <h2 style={{ justifyContent: 'center', fontSize: '2.5rem', background: 'linear-gradient(135deg, #a855f7 0%, #3b82f6 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '0.5rem' }}>
           Performance Dashboard
         </h2>
-        <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>Estimates based on printed sticker counts. Check invoice history for payment status.</p>
+        <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>Estimates based on recorded sticker counts. A print request may be cancelled; check invoice history for payment status.</p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '2rem', marginBottom: '4rem' }}>
@@ -96,7 +96,7 @@ export default function BusinessCalculator({ config, onConfigChange, clients = [
           <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '1rem', borderRadius: '50%', marginBottom: '1.25rem', boxShadow: '0 0 20px rgba(59, 130, 246, 0.2)' }}>
             <Printer size={40} style={{ color: '#3b82f6' }} />
           </div>
-          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-secondary)', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '1px' }}>Stickers Printed</h3>
+          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-secondary)', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '1px' }}>Recorded Stickers</h3>
           <p style={{ margin: '0.5rem 0 0', fontSize: '3rem', fontWeight: '800', background: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             {totalStickersPrinted.toLocaleString()}
           </p>
