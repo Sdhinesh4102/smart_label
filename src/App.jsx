@@ -25,6 +25,7 @@ import {
 import { useAuth } from './context/AuthContext';
 import AuthScreen from './components/AuthScreen';
 import TicketRedemption from './components/TicketRedemption';
+import QrDashboard from './components/QrDashboard';
 
 // Helper to parse routes from URL hash
 const parseHashRoute = () => {
@@ -51,7 +52,7 @@ const parseHashRoute = () => {
     };
   }
   const cleanHash = hash.replace('#', '');
-  const validTabs = ['calculator', 'clients', 'invoice', 'invoice_history', 'generator', 'simulator', 'redeem'];
+  const validTabs = ['calculator', 'clients', 'invoice', 'invoice_history', 'generator', 'simulator', 'redeem', 'qr_results'];
   
   if (validTabs.includes(cleanHash)) {
     return { type: 'dashboard', tab: cleanHash };
@@ -235,6 +236,11 @@ export default function App() {
             <QrCode size={16} /> Redeem Ticket
           </button>
 
+          <button className={`nav-btn ${activeTab === 'qr_results' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('qr_results'); setIsMenuOpen(false); }}>
+            <Layers size={16} /> QR Results
+          </button>
+
           <button 
             className={`nav-btn ${activeTab === 'generator' ? 'active' : ''} ${!selectedClient ? 'disabled-tab' : ''}`}
             onClick={() => { selectedClient && setActiveTab('generator'); setIsMenuOpen(false); }}
@@ -291,6 +297,7 @@ export default function App() {
         )}
 
         {activeTab === 'redeem' && <TicketRedemption />}
+        {activeTab === 'qr_results' && <QrDashboard />}
 
         {activeTab === 'generator' && selectedClient && (
           <QRStickerGenerator 

@@ -165,19 +165,9 @@ export const savePrintRunAsync = async (clientId, quantity, winnersCount, qrCode
   return data;
 };
 
-export const logPrintRunAsync = async (clientId, quantity) => {
-  const { data: clientData } = await supabase
-    .from('store_clients')
-    .select('stickers_printed')
-    .eq('id', clientId)
-    .single();
-    
-  if (clientData) {
-    await supabase
-      .from('store_clients')
-      .update({ stickers_printed: (clientData.stickers_printed || 0) + quantity })
-      .eq('id', clientId);
-  }
+export const logPrintRunAsync = async (runId) => {
+  const { error } = await supabase.rpc('record_print_request', { p_run_id: runId });
+  if (error) throw error;
 };
 
 // Customer Scan API
@@ -227,6 +217,12 @@ export const isAppAdminAsync = async () => {
   const { data, error } = await supabase.rpc('is_app_admin');
   if (error) throw error;
   return data === true;
+};
+
+export const getQrDashboardStatsAsync = async () => {
+  const { data, error } = await supabase.rpc('qr_dashboard_stats');
+  if (error) throw error;
+  return data || [];
 };
 
 // --- Invoices API ---

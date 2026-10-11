@@ -19,6 +19,7 @@ alter table public.qr_codes add column if not exists claim_token_hash text;
 alter table public.qr_codes add column if not exists ticket_code text;
 alter table public.qr_codes add column if not exists redeemed_at timestamptz;
 alter table public.qr_codes add column if not exists redeemed_by uuid references auth.users(id);
+alter table public.print_runs add column if not exists print_requested_at timestamptz;
 create unique index if not exists qr_codes_ticket_code_key on public.qr_codes(ticket_code);
 create index if not exists qr_codes_client_id_idx on public.qr_codes(client_id);
 
@@ -46,6 +47,24 @@ create policy "Admins manage QR codes" on public.qr_codes
   for all to authenticated using (public.is_app_admin()) with check (public.is_app_admin());
 create policy "Admins manage invoices" on public.invoices
   for all to authenticated using (public.is_app_admin()) with check (public.is_app_admin());
+
+-- Historical invoices already include a repeated INV-0001. Preserve them,
+-- while refusing any new duplicate even under concurrent saves.
+create or replace function public.guard_invoice_number()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if tg_op = 'UPDATE' and new.invoice_number = old.invoice_number then return new; end if;
+  perform pg_advisory_xact_lock(hashtext(new.invoice_number));
+  if exists (select 1 from public.invoices
+    where invoice_number = new.invoice_number and id <> new.id) then
+    raise unique_violation using message = 'Invoice number already exists';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists guard_invoice_number on public.invoices;
+create trigger guard_invoice_number before insert or update of invoice_number
+  on public.invoices for each row execute function public.guard_invoice_number();
 
 create or replace function public.create_print_run(p_client_id uuid, p_codes jsonb)
 returns uuid language plpgsql security definer set search_path = '' as $$
@@ -83,6 +102,37 @@ begin
 end;
 $$;
 
+create or replace function public.record_print_request(p_run_id uuid)
+returns boolean language plpgsql security definer set search_path = '' as $$
+declare v_run public.print_runs%rowtype;
+begin
+  if not public.is_app_admin() then raise exception 'not authorized'; end if;
+  select * into v_run from public.print_runs where id = p_run_id for update;
+  if not found then raise exception 'print run not found'; end if;
+  if v_run.print_requested_at is not null then return false; end if;
+  update public.print_runs set print_requested_at = now() where id = p_run_id;
+  update public.store_clients set stickers_printed = coalesce(stickers_printed, 0) + v_run.quantity
+    where id = v_run.client_id;
+  return true;
+end;
+$$;
+
+create or replace function public.qr_dashboard_stats()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select case when public.is_app_admin() then coalesce(jsonb_agg(
+    jsonb_build_object('store_id', s.id, 'store_name', s.name,
+      'total_qrs', coalesce(q.total_qrs, 0), 'winners', coalesce(q.winners, 0),
+      'revealed', coalesce(q.revealed, 0), 'redeemed', coalesce(q.redeemed, 0))
+    order by s.name), '[]'::jsonb) else '[]'::jsonb end
+  from public.store_clients s
+  left join lateral (
+    select count(*) total_qrs, count(*) filter (where is_winner) winners,
+      count(*) filter (where scanned_at is not null) revealed,
+      count(*) filter (where redeemed_at is not null) redeemed
+    from public.qr_codes where client_id = s.id
+  ) q on true;
+$$;
+
 create or replace function public.public_store(p_store_id uuid)
 returns jsonb language plpgsql stable security definer set search_path = '' as $$
 declare v_store public.store_clients%rowtype;
@@ -110,6 +160,7 @@ begin
     return jsonb_build_object('status', 'already_scanned');
   end if;
   if v_qr.scanned_at is null then return jsonb_build_object('status', 'available'); end if;
+  if not v_qr.is_winner then return jsonb_build_object('status', 'already_scanned'); end if;
   if p_device_token is not null and length(p_device_token) between 32 and 128
      and v_qr.claim_token_hash = md5(p_device_token) then
     return jsonb_build_object('status', 'revealed', 'is_winner', v_qr.is_winner,
@@ -140,6 +191,7 @@ begin
     return jsonb_build_object('status', 'already_scanned');
   end if;
   if v_qr.scanned_at is not null then
+    if not v_qr.is_winner then return jsonb_build_object('status', 'already_scanned'); end if;
     if v_qr.claim_token_hash = md5(p_device_token) then
       return jsonb_build_object('status', 'revealed', 'is_winner', v_qr.is_winner,
         'coupon_code', case when v_qr.is_winner then v_qr.coupon_code else null end,
@@ -182,11 +234,15 @@ $$;
 
 revoke all on function public.public_store(uuid) from public;
 revoke all on function public.create_print_run(uuid, jsonb) from public;
+revoke all on function public.record_print_request(uuid) from public;
+revoke all on function public.qr_dashboard_stats() from public;
 revoke all on function public.inspect_qr(uuid, uuid, text) from public;
 revoke all on function public.reveal_qr(uuid, uuid, text, text, text) from public;
 revoke all on function public.redeem_ticket(text) from public;
 grant execute on function public.public_store(uuid) to anon, authenticated;
 grant execute on function public.create_print_run(uuid, jsonb) to authenticated;
+grant execute on function public.record_print_request(uuid) to authenticated;
+grant execute on function public.qr_dashboard_stats() to authenticated;
 grant execute on function public.inspect_qr(uuid, uuid, text) to anon, authenticated;
 grant execute on function public.reveal_qr(uuid, uuid, text, text, text) to anon, authenticated;
 grant execute on function public.redeem_ticket(text) to authenticated;

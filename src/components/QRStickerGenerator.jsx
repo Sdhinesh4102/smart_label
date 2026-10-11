@@ -202,11 +202,13 @@ export default function QRStickerGenerator({ client, config, onConfigChange }) {
 
   const handlePrint = async () => {
     // Only log analytics when they actually print
-    if (!hasSavedRun || qrCodes.length === 0) return;
-    if (qrCodes.length > 0) {
-      await logPrintRunAsync(client.id, qrCodes.length);
+    if (!hasSavedRun || !runId || qrCodes.length === 0) return;
+    try {
+      await logPrintRunAsync(runId);
+      window.print();
+    } catch {
+      alert('Could not record this print request. Please try again.');
     }
-    window.print();
   };
 
   const downloadVendorCsv = () => {
