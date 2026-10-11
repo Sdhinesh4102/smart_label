@@ -37,11 +37,7 @@ export const getClientsAsync = async () => {
 // Database RLS must also enforce this boundary; a narrow query alone does
 // not protect the table from a direct API request.
 export const getPublicClientAsync = async (clientId) => {
-  const { data, error } = await supabase
-    .from('store_clients')
-    .select('id, name, location_url, instagram, whatsapp, facebook, website, qr_type, logo_data, offer_text')
-    .eq('id', clientId)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc('public_store', { p_store_id: clientId });
   if (error) throw error;
   if (!data) return null;
   return {
@@ -150,53 +146,23 @@ export const deleteClientAsync = async (id) => {
 
 // Print Runs and QR Codes API
 export const savePrintRunAsync = async (clientId, quantity, winnersCount, qrCodesList) => {
-  // 1. Create the Print Run
-  const { data: runData, error: runError } = await supabase
-    .from('print_runs')
-    .insert([{
-      client_id: clientId,
-      quantity,
-      winners_count: winnersCount
-    }])
-    .select();
-    
-  if (runError || !runData || runData.length === 0) {
-    console.error('Error creating print run:', runError);
+  if (quantity !== qrCodesList.length || winnersCount !== qrCodesList.filter(qr => qr.isWinner).length) {
     return null;
   }
-  
-  const runId = runData[0].id;
-  
-  // Save every QR so losing stickers can also be recognized after one reveal.
-  const qrPayloads = qrCodesList.map(qr => ({
-    id: qr.uuid, // Use the pre-generated UUID from the frontend
-    client_id: clientId,
-    print_run_id: runId,
+  const codes = qrCodesList.map(qr => ({
+    id: qr.uuid,
     is_winner: qr.isWinner,
-    is_claimed: false,
     coupon_code: qr.couponCode,
     sticker_number: qr.stickerNumber
   }));
-  
-  // 3. Insert every QR in the batch.
-  if (qrPayloads.length > 0) {
-    const { error: qrError } = await supabase
-      .from('qr_codes')
-      .insert(qrPayloads);
-      
-    if (qrError) {
-      console.error('Error saving QR codes:', qrError);
-      // A failed batch must never be printed as though its QRs were active.
-      const { error: rollbackError } = await supabase
-        .from('print_runs')
-        .delete()
-        .eq('id', runId);
-      if (rollbackError) console.error('Error rolling back print run:', rollbackError);
-      return null;
-    }
+  const { data, error } = await supabase.rpc('create_print_run', {
+    p_client_id: clientId, p_codes: codes
+  });
+  if (error) {
+    console.error('Error creating QR batch:', error);
+    return null;
   }
-  
-  return runId;
+  return data;
 };
 
 export const logPrintRunAsync = async (clientId, quantity) => {
@@ -215,48 +181,52 @@ export const logPrintRunAsync = async (clientId, quantity) => {
 };
 
 // Customer Scan API
-export const getQRCodeDetailsAsync = async (qrId) => {
-  const { data, error } = await supabase
-    .from('qr_codes')
-    .select('id, client_id, is_winner, is_claimed, coupon_code')
-    .eq('id', qrId)
-    .single();
-    
-  if (error?.code === 'PGRST116' || !data && !error) {
-    return null;
-  }
+export const getQRCodeDetailsAsync = async (storeId, qrId, deviceToken) => {
+  const { data, error } = await supabase.rpc('inspect_qr', {
+    p_store_id: storeId, p_qr_id: qrId, p_device_token: deviceToken
+  });
   if (error) {
     console.error('Error fetching QR details:', error);
     throw error;
   }
-  
   return {
-    id: data.id,
-    clientId: data.client_id,
-    isWinner: data.is_winner,
-    isClaimed: data.is_claimed,
-    couponCode: data.coupon_code
+    status: data.status,
+    isWinner: data.is_winner === true,
+    couponCode: data.coupon_code || '',
+    ticketCode: data.ticket_code || ''
   };
 };
 
-export const claimQRCodeAsync = async (qrId, claimerName, claimerPhone) => {
-  const { data, error } = await supabase
-    .from('qr_codes')
-    .update({
-      is_claimed: true,
-      claimer_name: claimerName,
-      claimer_phone: claimerPhone,
-      scanned_at: new Date().toISOString()
-    })
-    .eq('id', qrId)
-    .eq('is_claimed', false)
-    .select('id');
-    
+export const claimQRCodeAsync = async (storeId, qrId, deviceToken, claimerName, claimerPhone) => {
+  const { data, error } = await supabase.rpc('reveal_qr', {
+    p_store_id: storeId,
+    p_qr_id: qrId,
+    p_device_token: deviceToken,
+    p_name: claimerName,
+    p_phone: claimerPhone
+  });
   if (error) {
     console.error('Error claiming QR code:', error);
-    return false;
+    throw error;
   }
-  return data?.length === 1;
+  return {
+    status: data.status,
+    isWinner: data.is_winner === true,
+    couponCode: data.coupon_code || '',
+    ticketCode: data.ticket_code || ''
+  };
+};
+
+export const redeemTicketAsync = async (ticketCode) => {
+  const { data, error } = await supabase.rpc('redeem_ticket', { p_ticket_code: ticketCode });
+  if (error) throw error;
+  return data;
+};
+
+export const isAppAdminAsync = async () => {
+  const { data, error } = await supabase.rpc('is_app_admin');
+  if (error) throw error;
+  return data === true;
 };
 
 // --- Invoices API ---

@@ -55,8 +55,28 @@ The publishable key is visible in the browser; database access must be limited b
 Supabase permissions and policies. Never place a service-role or secret key in a
 `VITE_` variable.
 
-Existing losing stickers were not recorded in `qr_codes`. Keep their scan links
-working until their original QR URL list has been recovered and migrated.
+Existing losing stickers were not recorded in `qr_codes`. Their UUIDs cannot be
+reconstructed without the original print export. The secure scanner displays
+"Sticker cannot be verified" for these URLs. Ask the customer to show the
+physical label at the store; do not promise a prize or one-time verification.
+
+### Secure rollout order
+
+1. Back up the live database. Confirm the owner Auth user ID in the first SQL
+   migration matches the account that should manage all stores.
+2. Apply `supabase/migrations/20261011_secure_qr_flow.sql` in Supabase SQL Editor.
+   This adds the secure functions while retaining the existing public policies.
+3. Deploy the matching frontend and test a new QR, same-browser ticket return,
+   different-browser rejection, and cashier redemption with a controlled test
+   batch. Never print or distribute the test batch.
+4. Apply `supabase/migrations/20261011_lockdown_public_tables.sql` immediately
+   after the frontend passes. Recheck that `anon` cannot read or update raw
+   stores, QR records, print runs, or invoices.
+
+The owner can redeem tickets from the new dashboard. A shop staff account can
+redeem only after its Supabase Auth user ID and store ID are inserted into
+`public.store_staff` by a trusted administrator. Do not share the owner login
+with shops. Public signups should be disabled in Supabase Auth settings.
 
 ### 5. Start the Development Server
 Run the Vite development server:

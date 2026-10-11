@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { MapPin, Instagram, MessageSquare, Facebook, Gift, Sparkles, RefreshCw, User, Phone, CheckCircle, Globe } from 'lucide-react';
+import { MapPin, Instagram, MessageSquare, Facebook, Gift, Sparkles, User, Phone, CheckCircle, Globe } from 'lucide-react';
 import { getQRCodeDetailsAsync, claimQRCodeAsync } from '../utils/api';
-import { classifyScan, isValidQrId } from '../utils/scanStatus';
+import { isValidQrId } from '../utils/scanStatus';
+import { getDeviceToken } from '../utils/deviceToken';
 import { safeHttpUrl, socialUrl, whatsappUrl } from '../utils/publicLinks';
 import { normalizeCustomerInput } from '../utils/customerInput';
 
@@ -13,9 +14,11 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
   
   // Database State
   const [qrId, setQrId] = useState(null);
+  const [deviceToken, setDeviceToken] = useState(null);
   const [qrDetails, setQrDetails] = useState(null);
   const [loading, setLoading] = useState(!isMock);
   const [isClaimedByOther, setIsClaimedByOther] = useState(false);
+  const [isRedeemed, setIsRedeemed] = useState(false);
   const [invalidQr, setInvalidQr] = useState(false);
   const [legacyLoser, setLegacyLoser] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -39,6 +42,7 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
       setLegacyLoser(false);
       setLoadError(false);
       setIsClaimedByOther(false);
+      setIsRedeemed(false);
       setFormSubmitted(false);
       setScratched(false);
       setTicketCode('');
@@ -54,23 +58,26 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
       }
 
       setQrId(urlQrId);
-      getQRCodeDetailsAsync(urlQrId).then(details => {
+      const token = getDeviceToken(urlQrId);
+      setDeviceToken(token);
+      getQRCodeDetailsAsync(client?.id, urlQrId, token).then(details => {
         if (cancelled) return;
-        const status = classifyScan(client?.id, urlQrId, details);
-        if (status === 'invalid') {
+        if (details.status === 'invalid') {
           setInvalidQr(true);
-        } else if (status === 'legacy_loser') {
-          // Previously printed losing stickers were never saved. Keep their
-          // non-winning result available without collecting customer details.
+        } else if (details.status === 'unverified') {
           setLegacyLoser(true);
-          setIsWinner(false);
         } else {
           setQrDetails(details);
           setIsWinner(details.isWinner);
           setCouponCode(details.couponCode || '');
-          if (status === 'claimed') {
+          setTicketCode(details.ticketCode || '');
+          if (details.status === 'already_scanned' || details.status === 'redeemed') {
             setIsClaimedByOther(true);
+            setIsRedeemed(details.status === 'redeemed');
             setFormSubmitted(true);
+          } else if (details.status === 'revealed') {
+            setFormSubmitted(true);
+            setScratched(true);
           }
         }
       }).catch(() => {
@@ -101,17 +108,22 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
     try {
       if (isMock) {
         setFormSubmitted(true);
-      } else if (qrId && qrDetails) {
-        const success = await claimQRCodeAsync(qrId, customer.name, customer.phone);
-        if (success) {
+      } else if (qrId && qrDetails && deviceToken) {
+        const result = await claimQRCodeAsync(client.id, qrId, deviceToken, customer.name, customer.phone);
+        if (result.status === 'revealed') {
+          setIsWinner(result.isWinner);
+          setCouponCode(result.couponCode);
+          setTicketCode(result.ticketCode);
           setFormSubmitted(true);
+        } else if (result.status === 'unverified') {
+          setLegacyLoser(true);
+        } else if (result.status === 'already_scanned' || result.status === 'redeemed') {
+          setIsClaimedByOther(true);
+          setIsRedeemed(result.status === 'redeemed');
+        } else if (result.status === 'invalid_input') {
+          setFormError('Please check your name and phone number.');
         } else {
-          const current = await getQRCodeDetailsAsync(qrId);
-          if (current?.isClaimed) {
-            setIsClaimedByOther(true);
-          } else {
-            alert("Failed to register. Please try again.");
-          }
+          setFormError('Could not reveal this QR code. Please try again.');
         }
       }
     } catch (error) {
@@ -122,15 +134,11 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
     }
   };
 
-  // Generate validation code once coupon is unlocked
+  // The real ticket is issued by the database; only the simulator uses a sample.
   useEffect(() => {
     if (scratched && !isClaimedByOther) {
       if (isWinner) {
-        const storeInitials = client.name
-          ? client.name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 3)
-          : 'QR';
-        const randomId = Math.random().toString(36).substring(2, 6).toUpperCase();
-        setTicketCode(`${storeInitials}-${couponCode || 'BOGO'}-${randomId}`);
+        if (isMock) setTicketCode('SAMPLE-TICKET');
         
         // Fire confetti celebration!
         confetti({
@@ -140,14 +148,10 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
           colors: ['#a855f7', '#3b82f6', '#10b981', '#f59e0b']
         });
       } else {
-        const storeInitials = client.name
-          ? client.name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 3)
-          : 'QR';
-        const randomId = Math.random().toString(36).substring(2, 6).toUpperCase();
-        setTicketCode(`${storeInitials}-TRYAGAIN-${randomId}`);
+        if (isMock) setTicketCode('SAMPLE-TRYAGAIN');
       }
     }
-  }, [scratched, couponCode, client?.name, isWinner, isClaimedByOther]);
+  }, [scratched, isWinner, isClaimedByOther, isMock]);
 
   // Handle Canvas scratch effect (for high-fidelity desktop/mobile simulation)
   useEffect(() => {
@@ -256,11 +260,6 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
 
   const handleTapRevealFallback = () => {
     setScratched(true);
-  };
-
-  const handleResetScratch = () => {
-    setScratched(false);
-    setTicketCode('');
   };
 
   if (loading) {
@@ -383,14 +382,14 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
                 <div className="promo-card-body coupon-promo">
                   {legacyLoser ? (
                     <div className="reveal-content-container animate-reveal" style={{ textAlign: 'center' }}>
-                      <div className="offer-title">😢 Better Luck Next Time!</div>
-                      <p className="offer-subtext">This sticker did not contain a reward. Try another sticker on your next order!</p>
+                      <div className="offer-title">Sticker cannot be verified</div>
+                      <p className="offer-subtext">This may be an older sticker. Please show the printed sticker to the shop. We cannot confirm its prize or one-time status online.</p>
                     </div>
                   ) : isClaimedByOther ? (
                     <div className="reveal-content-container animate-reveal" style={{ textAlign: 'center' }}>
-                      <div className="offer-title" style={{ color: '#ef4444' }}>⚠️ ALREADY CLAIMED</div>
+                      <div className="offer-title" style={{ color: '#ef4444' }}>{isRedeemed ? '⚠️ ALREADY REDEEMED' : '⚠️ ALREADY SCANNED'}</div>
                       <p className="offer-subtext" style={{ padding: '0.25rem 0.5rem', lineHeight: '1.4' }}>
-                        This QR code has already been scratched and claimed. Please purchase another bottle and scan a new code!
+                        {isRedeemed ? 'This reward was already redeemed at the shop.' : 'This QR code was already revealed on another phone.'}
                       </p>
                     </div>
                   ) : !formSubmitted ? (
@@ -460,7 +459,7 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
                         <>
                           <Gift className="prize-icon bounce-animation" size={32} />
                           <div className="offer-title">{client.offerText || '🎁 YOU UNLOCKED A BUY 1 GET 1 OFFER!'}</div>
-                          <p className="offer-subtext">Matches pre-stored store code: <strong>{couponCode || 'BOGOJUICE'}</strong></p>
+                          <p className="offer-subtext">Offer code: <strong>{couponCode || 'BOGOJUICE'}</strong></p>
                           
                           <div className="ticket-box">
                             <div className="ticket-label">VERIFICATION TICKET CODE</div>

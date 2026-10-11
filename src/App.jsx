@@ -3,7 +3,7 @@ import {
   getPrinterConfig, 
   savePrinterConfig 
 } from './utils/localStorage';
-import { getClientsAsync, getPublicClientAsync } from './utils/api';
+import { getClientsAsync, getPublicClientAsync, isAppAdminAsync } from './utils/api';
 import BusinessCalculator from './components/BusinessCalculator';
 import ClientManager from './components/ClientManager';
 import QRStickerGenerator from './components/QRStickerGenerator';
@@ -16,8 +16,6 @@ import {
   ShoppingBag, 
   Eye, 
   Layers, 
-  HelpCircle,
-  ExternalLink,
   FileText,
   LogOut,
   History,
@@ -26,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import AuthScreen from './components/AuthScreen';
+import TicketRedemption from './components/TicketRedemption';
 
 // Helper to parse routes from URL hash
 const parseHashRoute = () => {
@@ -52,7 +51,7 @@ const parseHashRoute = () => {
     };
   }
   const cleanHash = hash.replace('#', '');
-  const validTabs = ['calculator', 'clients', 'invoice', 'invoice_history', 'generator', 'simulator'];
+  const validTabs = ['calculator', 'clients', 'invoice', 'invoice_history', 'generator', 'simulator', 'redeem'];
   
   if (validTabs.includes(cleanHash)) {
     return { type: 'dashboard', tab: cleanHash };
@@ -67,6 +66,7 @@ const parseHashRoute = () => {
 export default function App() {
   const { user, signOut } = useAuth();
   const [clients, setClients] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(null);
   const [publicClient, setPublicClient] = useState(null);
   const [publicClientLoading, setPublicClientLoading] = useState(false);
   const [publicClientError, setPublicClientError] = useState(false);
@@ -97,6 +97,20 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
+    if (!user) {
+      setIsAdmin(null);
+      return () => { active = false; };
+    }
+    isAppAdminAsync().then(value => {
+      if (active) setIsAdmin(value);
+    }).catch(() => {
+      if (active) setIsAdmin(false);
+    });
+    return () => { active = false; };
+  }, [user]);
+
+  useEffect(() => {
+    let active = true;
     if (route.type === 'store') {
       setPublicClient(null);
       setPublicClientLoading(true);
@@ -109,13 +123,13 @@ export default function App() {
       }).finally(() => {
         if (active) setPublicClientLoading(false);
       });
-    } else if (user) {
+    } else if (user && isAdmin) {
       getClientsAsync().then(loadedClients => {
         if (active) setClients(loadedClients);
       });
     }
     return () => { active = false; };
-  }, [route.type, route.clientId, user]);
+  }, [route.type, route.clientId, user, isAdmin]);
 
   // Update client list state (API save handled by ClientManager)
   const handleSaveClients = (newClients) => {
@@ -163,6 +177,11 @@ export default function App() {
     return <AuthScreen />;
   }
 
+  if (isAdmin === null) return <div className="app-loading">Checking access...</div>;
+  if (!isAdmin) return <div className="app-container"><header className="app-navbar">
+    <span>Smart QR Promo Suite</span><button className="nav-btn" onClick={signOut}>Logout</button>
+  </header><TicketRedemption /></div>;
+
   // --- 3. RENDER BUSINESS ADMINISTRATION PANEL ---
   return (
     <div className="app-container">
@@ -209,6 +228,11 @@ export default function App() {
             onClick={() => { setActiveTab('invoice_history'); setIsMenuOpen(false); }}
           >
             <History size={16} /> Invoice History
+          </button>
+
+          <button className={`nav-btn ${activeTab === 'redeem' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('redeem'); setIsMenuOpen(false); }}>
+            <QrCode size={16} /> Redeem Ticket
           </button>
 
           <button 
@@ -265,6 +289,8 @@ export default function App() {
         {activeTab === 'invoice_history' && (
           <InvoiceHistory />
         )}
+
+        {activeTab === 'redeem' && <TicketRedemption />}
 
         {activeTab === 'generator' && selectedClient && (
           <QRStickerGenerator 
