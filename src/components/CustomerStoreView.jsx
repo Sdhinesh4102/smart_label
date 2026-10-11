@@ -50,6 +50,11 @@ export default function CustomerStoreView({ client, simulatedCouponCode = '', si
       setIsWinner(false);
       setQrDetails(null);
       const urlQrId = scanQrId;
+
+      if (!client?.id) {
+        setLoading(false);
+        return;
+      }
       
       if (!isValidQrId(urlQrId)) {
         setInvalidQr(true);

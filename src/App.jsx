@@ -69,7 +69,7 @@ export default function App() {
   const [clients, setClients] = useState([]);
   const [isAdmin, setIsAdmin] = useState(null);
   const [publicClient, setPublicClient] = useState(null);
-  const [publicClientLoading, setPublicClientLoading] = useState(false);
+  const [publicClientLoading, setPublicClientLoading] = useState(() => parseHashRoute().type === 'store');
   const [publicClientError, setPublicClientError] = useState(false);
   const [config, setConfig] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
